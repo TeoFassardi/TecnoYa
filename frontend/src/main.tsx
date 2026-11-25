@@ -1,0 +1,762 @@
+import React, { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { Provider } from "react-redux";
+import {
+  BrowserRouter,
+  Link,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+  useNavigate,
+  useParams,
+} from "react-router";
+import {
+  Keyboard,
+  Mouse,
+  Headphones,
+  Monitor,
+  ArrowUpRight,
+  Archive,
+  RotateCcw,
+  Trash2,
+  Plus,
+  Pencil,
+  Plug,
+} from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  api,
+  authClient,
+  store,
+  money,
+  errorMessage,
+  type Product,
+} from "./data";
+import "./styles.css";
+const categories = [
+  { id: "teclados", name: "Teclados", Icon: Keyboard },
+  { id: "mouse", name: "Mouse", Icon: Mouse },
+  { id: "auriculares", name: "Auriculares", Icon: Headphones },
+  { id: "monitores", name: "Monitores", Icon: Monitor },
+];
+function ProductVisual({ product }: { product: Product }) {
+  const [failed, setFailed] = useState(false);
+  const Icon = categories.find((c) => c.id === product.category)?.Icon ?? Plug;
+  return (
+    <div className={`product-visual ${product.category}`}>
+      {product.imageUrl && !failed ? (
+        <img
+          src={product.imageUrl}
+          alt={product.name}
+          loading="lazy"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <Icon aria-hidden="true" strokeWidth={1.1} />
+      )}
+    </div>
+  );
+}
+function Notice({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="notice" role="status">
+      {children}
+    </div>
+  );
+}
+function Layout() {
+  const { data: session } = authClient.useSession();
+  const navigate = useNavigate();
+  const [error, setError] = useState("");
+  async function logout() {
+    const result = await authClient.signOut();
+    if (result.error) {
+      setError("No pudimos cerrar la sesión. Intentá nuevamente.");
+      return;
+    }
+    store.dispatch(api.util.resetApiState());
+    navigate("/");
+  }
+  return (
+    <>
+      <a className="skip" href="#main">
+        Ir al contenido
+      </a>
+      <header>
+        <Link className="logo" to="/">
+          tecno<span>ya</span>
+          <span className="logo-dot" />
+        </Link>
+        <nav aria-label="Principal">
+          <Link to="/">Catálogo</Link>
+          {session?.user.role === "admin" && (
+            <Link to="/admin/products">Administración</Link>
+          )}
+          {session ? (
+            <>
+              <span className="user-name">Hola, {session.user.name}</span>
+              <button className="button subtle" onClick={() => void logout()}>
+                Cerrar sesión
+              </button>
+            </>
+          ) : (
+            <Link className="button subtle" to="/login">
+              Ingresar <ArrowUpRight size={16} />
+            </Link>
+          )}
+        </nav>
+      </header>
+      {error && <Notice>{error}</Notice>}
+      <main id="main">
+        <Outlet />
+      </main>
+      <footer>
+        <Link className="logo" to="/">
+          tecno<span>ya</span>
+        </Link>
+        <p>Tu próximo setup empieza acá.</p>
+        <span>Catálogo de periféricos · Precios en ARS</span>
+      </footer>
+    </>
+  );
+}
+function Catalog() {
+  const { data, isLoading, isError, refetch } = api.useProductsQuery();
+  return (
+    <>
+      <section className="hero">
+        <div className="hero-copy">
+          <p className="hero-kicker">Encontrá tu próxima conexión</p>
+          <h1>
+            Un buen setup
+            <br />
+            cambia tu día.
+          </h1>
+          <p>
+            Para trabajar, jugar o crear. Explorá periféricos y encontrá lo que
+            va con vos.
+          </p>
+          <a className="button" href="#catalog">
+            Explorar catálogo <ArrowUpRight size={18} />
+          </a>
+        </div>
+        <div className="hero-device" aria-hidden="true">
+          <div className="device-label">Hacé espacio para algo mejor.</div>
+          <Keyboard strokeWidth={0.7} />
+          <span>Trabajá cómodo. Jugá a tu manera.</span>
+        </div>
+      </section>
+      <section id="catalog">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Elegí tu próximo upgrade</p>
+            <h2>El catálogo</h2>
+          </div>
+          <span className="muted">
+            {data ? `${data.items.length} productos` : ""}
+          </span>
+        </div>
+        <div className="category-strip">
+          {categories.map(({ id, name, Icon }) => (
+            <a href={`#${id}`} key={id}>
+              <Icon size={22} />
+              {name}
+            </a>
+          ))}
+        </div>
+        {isLoading ? (
+          <Notice>Cargando productos…</Notice>
+        ) : isError ? (
+          <Notice>
+            No pudimos cargar el catálogo. El servidor puede estar iniciando.{" "}
+            <button onClick={() => void refetch()}>Reintentar</button>
+          </Notice>
+        ) : !data?.items.length ? (
+          <Notice>Pronto vas a encontrar nuevos productos acá.</Notice>
+        ) : (
+          categories.map(({ id, name }) => {
+            const products = data.items.filter((p) => p.category === id);
+            return products.length ? (
+              <section className="category-section" id={id} key={id}>
+                <h3>{name}</h3>
+                <div className="product-grid">
+                  {products.map((p) => (
+                    <Link
+                      className="product-card"
+                      to={`/products/${p._id}`}
+                      key={p._id}
+                    >
+                      <ProductVisual product={p} />
+                      <div className="product-info">
+                        <span className="brand">{p.brand}</span>
+                        <h4>{p.name}</h4>
+                        <div className="product-bottom">
+                          <strong>{money(p.priceCents)}</strong>
+                          <ArrowUpRight size={20} />
+                        </div>
+                        <span className={p.stock ? "stock" : "muted"}>
+                          {p.stock ? "Disponible" : "Sin stock"}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null;
+          })
+        )}
+      </section>
+    </>
+  );
+}
+function Detail() {
+  const { id = "" } = useParams();
+  const { data, isLoading, isError } = api.useProductQuery({ id });
+  if (isLoading) return <Notice>Cargando producto…</Notice>;
+  if (isError || !data)
+    return (
+      <Notice>
+        El producto no está disponible. <Link to="/">Volver al catálogo</Link>
+      </Notice>
+    );
+  return (
+    <section>
+      <Link className="back" to="/">
+        Volver al catálogo
+      </Link>
+      <div className="detail">
+        <ProductVisual product={data} />
+        <div>
+          <span className="brand">
+            {data.brand} / {data.category}
+          </span>
+          <h1>{data.name}</h1>
+          <p className="detail-price">{money(data.priceCents)}</p>
+          <span className={data.stock ? "stock" : "muted"}>
+            {data.stock ? `${data.stock} unidades disponibles` : "Sin stock"}
+          </span>
+          <p className="description">{data.description}</p>
+          <p className="muted">
+            Catálogo informativo. No se realizan compras desde este sitio.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+const authSchema = z.object({
+  name: z.string(),
+  email: z.email("Ingresá un correo válido"),
+  password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres"),
+});
+function AuthForm({ register = false }: { register?: boolean }) {
+  const navigate = useNavigate();
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const {
+    register: field,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<z.infer<typeof authSchema>>({
+    resolver: zodResolver(authSchema),
+    defaultValues: { name: "", email: "", password: "" },
+  });
+  const submit = handleSubmit(async (values) => {
+    if (register && !values.name.trim()) {
+      setError("Ingresá tu nombre");
+      return;
+    }
+    setError("");
+    setPending(true);
+    try {
+      const result = register
+        ? await authClient.signUp.email({ ...values, name: values.name.trim() })
+        : await authClient.signIn.email(values);
+      if (result.error) {
+        setError(
+          register
+            ? "No pudimos crear la cuenta. Revisá tus datos o probá iniciar sesión."
+            : "Correo o contraseña incorrectos.",
+        );
+        return;
+      }
+      navigate("/");
+    } catch {
+      setError("No pudimos conectar con el servidor. Intentá nuevamente.");
+    } finally {
+      setPending(false);
+    }
+  });
+  return (
+    <section className="auth-page">
+      <div className="auth-intro">
+        <Plug size={44} strokeWidth={1.3} />
+        <h1>
+          {register ? "Tu lugar en TecnoYa." : "Qué bueno verte de nuevo."}
+        </h1>
+        <p>Todo para encontrar tu próximo periférico.</p>
+      </div>
+      <form className="form-panel" onSubmit={submit} noValidate>
+        <h2>{register ? "Crear cuenta" : "Iniciar sesión"}</h2>
+        {register && (
+          <label>
+            Nombre
+            <input autoComplete="name" {...field("name")} />
+          </label>
+        )}
+        <label>
+          Correo electrónico
+          <input type="email" autoComplete="email" {...field("email")} />
+          {errors.email && (
+            <span className="field-error">{errors.email.message}</span>
+          )}
+        </label>
+        <label>
+          Contraseña
+          <input
+            type="password"
+            autoComplete={register ? "new-password" : "current-password"}
+            {...field("password")}
+          />
+          {errors.password && (
+            <span className="field-error">{errors.password.message}</span>
+          )}
+        </label>
+        {error && (
+          <p className="field-error" role="alert">
+            {error}
+          </p>
+        )}
+        <button className="button" disabled={pending}>
+          {pending ? "Procesando…" : register ? "Crear cuenta" : "Ingresar"}
+        </button>
+        <p>
+          {register ? "¿Ya tenés cuenta?" : "¿Primera vez por acá?"}{" "}
+          <Link to={register ? "/login" : "/register"}>
+            {register ? "Iniciá sesión" : "Registrate"}
+          </Link>
+        </p>
+      </form>
+    </section>
+  );
+}
+function Guard() {
+  const { data, isPending } = authClient.useSession();
+  if (isPending) return <Notice>Comprobando sesión…</Notice>;
+  if (!data) return <Navigate to="/login" replace />;
+  if (data.user.role !== "admin")
+    return (
+      <Notice>
+        No tenés permisos para acceder a la administración.{" "}
+        <Link to="/">Volver al inicio</Link>
+      </Notice>
+    );
+  return <Outlet />;
+}
+function Confirm({
+  product,
+  action,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  product: Product;
+  action: "archive" | "permanent";
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const d = dialog.current;
+    const previous = document.activeElement;
+    d?.showModal();
+    cancel.current?.focus();
+    return () => {
+      d?.close();
+      if (previous instanceof HTMLElement) previous.focus();
+    };
+  }, []);
+  return (
+    <dialog
+      ref={dialog}
+      aria-labelledby="confirm-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!busy) onCancel();
+      }}
+    >
+      <h2 id="confirm-title">
+        {action === "archive"
+          ? "Archivar producto"
+          : "Eliminar definitivamente"}
+      </h2>
+      <p>
+        ¿{action === "archive" ? "Querés archivar" : "Querés eliminar"}{" "}
+        <strong>{product.name}</strong>?
+      </p>
+      <p className="muted">
+        {action === "archive"
+          ? "Dejará de aparecer en el catálogo. Podés restaurarlo después."
+          : "Se borrará de MongoDB. Esta acción no se puede deshacer."}
+      </p>
+      <div className="actions">
+        <button
+          ref={cancel}
+          className="button subtle"
+          disabled={busy}
+          onClick={onCancel}
+        >
+          Cancelar
+        </button>
+        <button className="button danger" disabled={busy} onClick={onConfirm}>
+          {busy
+            ? "Procesando…"
+            : action === "archive"
+              ? "Archivar"
+              : "Eliminar definitivamente"}
+        </button>
+      </div>
+    </dialog>
+  );
+}
+function Admin() {
+  const [status, setStatus] = useState("active");
+  const { data, isLoading, isError, refetch } = api.useProductsQuery(status);
+  const [mutate, { isLoading: busy }] = api.useActionMutation();
+  const [selected, setSelected] = useState<{
+    product: Product;
+    action: "archive" | "permanent";
+  } | null>(null);
+  const [message, setMessage] = useState("");
+  async function act(
+    product: Product,
+    action: "archive" | "restore" | "permanent",
+  ) {
+    try {
+      await mutate({ id: product._id, action }).unwrap();
+      setSelected(null);
+      setMessage(
+        action === "restore"
+          ? "Producto restaurado."
+          : action === "archive"
+            ? "Producto archivado."
+            : "Producto eliminado definitivamente.",
+      );
+    } catch (e) {
+      setMessage(errorMessage(e));
+    }
+  }
+  return (
+    <section>
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Administración</p>
+          <h1>Productos</h1>
+        </div>
+        <Link className="button" to="/admin/products/new">
+          <Plus size={18} />
+          Nuevo producto
+        </Link>
+      </div>
+      <div className="tabs">
+        <button
+          aria-pressed={status === "active"}
+          onClick={() => setStatus("active")}
+        >
+          Activos
+        </button>
+        <button
+          aria-pressed={status === "archived"}
+          onClick={() => setStatus("archived")}
+        >
+          Archivados
+        </button>
+      </div>
+      {message && <Notice>{message}</Notice>}
+      {isLoading ? (
+        <Notice>Cargando productos…</Notice>
+      ) : isError ? (
+        <Notice>
+          No pudimos cargar los productos.{" "}
+          <button onClick={() => void refetch()}>Reintentar</button>
+        </Notice>
+      ) : !data?.items.length ? (
+        <Notice>
+          No hay productos {status === "active" ? "activos" : "archivados"}.
+        </Notice>
+      ) : (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th>Stock</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((p) => (
+                <tr key={p._id}>
+                  <td>
+                    <strong>{p.name}</strong>
+                    <small>{p.brand}</small>
+                  </td>
+                  <td>{p.category}</td>
+                  <td>{money(p.priceCents)}</td>
+                  <td>{p.stock}</td>
+                  <td>
+                    <div className="actions">
+                      <Link
+                        className="icon-button"
+                        aria-label={`Editar ${p.name}`}
+                        to={`/admin/products/${p._id}/edit`}
+                      >
+                        <Pencil size={18} />
+                      </Link>
+                      {status === "active" ? (
+                        <button
+                          className="icon-button"
+                          aria-label={`Archivar ${p.name}`}
+                          onClick={() =>
+                            setSelected({ product: p, action: "archive" })
+                          }
+                        >
+                          <Archive size={18} />
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            disabled={busy}
+                            className="icon-button"
+                            aria-label={`Restaurar ${p.name}`}
+                            onClick={() => void act(p, "restore")}
+                          >
+                            <RotateCcw size={18} />
+                          </button>
+                          <button
+                            className="icon-button"
+                            aria-label={`Eliminar definitivamente ${p.name}`}
+                            onClick={() =>
+                              setSelected({ product: p, action: "permanent" })
+                            }
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {selected && (
+        <Confirm
+          {...selected}
+          busy={busy}
+          onCancel={() => setSelected(null)}
+          onConfirm={() => void act(selected.product, selected.action)}
+        />
+      )}
+    </section>
+  );
+}
+const editSchema = z.object({
+  name: z.string().trim().min(1, "Ingresá un nombre").max(100),
+  brand: z.string().trim().min(1, "Ingresá una marca").max(80),
+  description: z.string().trim().min(1, "Ingresá una descripción").max(2000),
+  category: z.enum(["teclados", "mouse", "auriculares", "monitores"]),
+  price: z
+    .number("Ingresá un precio")
+    .positive("El precio debe ser mayor que cero")
+    .max(1000000000),
+  stock: z
+    .number("Ingresá un stock")
+    .int("Usá un número entero")
+    .min(0, "El stock no puede ser negativo")
+    .max(1000000),
+  imageUrl: z.union([
+    z
+      .url("Ingresá una URL válida")
+      .refine((v) => v.startsWith("https://"), "Usá HTTPS"),
+    z.literal(""),
+  ]),
+});
+function Editor() {
+  const { id } = useParams();
+  const { data, isLoading, isError } = api.useProductQuery(
+    { id: id ?? "", admin: true },
+    { skip: !id },
+  );
+  const [save, { isLoading: busy }] = api.useSaveMutation();
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const {
+    register,
+    reset,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<z.infer<typeof editSchema>>({
+    resolver: zodResolver(editSchema),
+    defaultValues: {
+      name: "",
+      brand: "",
+      description: "",
+      category: "teclados",
+      price: 0,
+      stock: 0,
+      imageUrl: "",
+    },
+  });
+  useEffect(() => {
+    if (data)
+      reset({
+        ...data,
+        category: data.category as z.infer<typeof editSchema>["category"],
+        price: data.priceCents / 100,
+      });
+  }, [data, reset]);
+  if (isLoading) return <Notice>Cargando producto…</Notice>;
+  if (isError)
+    return (
+      <Notice>
+        No pudimos cargar el producto. <Link to="/admin/products">Volver</Link>
+      </Notice>
+    );
+  const submit = handleSubmit(async ({ price, ...values }) => {
+    try {
+      await save({
+        id,
+        data: { ...values, priceCents: Math.round(price * 100) },
+      }).unwrap();
+      navigate("/admin/products");
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  });
+  return (
+    <section className="editor">
+      <Link className="back" to="/admin/products">
+        Volver a productos
+      </Link>
+      <h1>{id ? "Editar producto" : "Nuevo producto"}</h1>
+      <form className="form-panel" onSubmit={submit} noValidate>
+        <div className="form-grid">
+          {(["name", "brand"] as const).map((key) => (
+            <label key={key}>
+              {key === "name" ? "Nombre" : "Marca"}
+              <input {...register(key)} />
+              {errors[key] && (
+                <span className="field-error">{errors[key].message}</span>
+              )}
+            </label>
+          ))}
+          <label>
+            Categoría
+            <select {...register("category")}>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Precio en ARS
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              {...register("price", { valueAsNumber: true })}
+            />
+            {errors.price && (
+              <span className="field-error">{errors.price.message}</span>
+            )}
+          </label>
+          <label>
+            Stock
+            <input
+              type="number"
+              min="0"
+              step="1"
+              {...register("stock", { valueAsNumber: true })}
+            />
+            {errors.stock && (
+              <span className="field-error">{errors.stock.message}</span>
+            )}
+          </label>
+          <label>
+            URL de imagen (opcional)
+            <input type="url" {...register("imageUrl")} />
+            {errors.imageUrl && (
+              <span className="field-error">{errors.imageUrl.message}</span>
+            )}
+          </label>
+        </div>
+        <label>
+          Descripción
+          <textarea rows={5} {...register("description")} />
+          {errors.description && (
+            <span className="field-error">{errors.description.message}</span>
+          )}
+        </label>
+        {error && (
+          <p role="alert" className="field-error">
+            {error}
+          </p>
+        )}
+        <div className="actions">
+          <Link className="button subtle" to="/admin/products">
+            Cancelar
+          </Link>
+          <button className="button" disabled={busy}>
+            {busy ? "Guardando…" : "Guardar producto"}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+function App() {
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route index element={<Catalog />} />
+        <Route path="products/:id" element={<Detail />} />
+        <Route path="login" element={<AuthForm />} />
+        <Route path="register" element={<AuthForm register />} />
+        <Route element={<Guard />}>
+          <Route path="admin/products" element={<Admin />} />
+          <Route path="admin/products/new" element={<Editor />} />
+          <Route path="admin/products/:id/edit" element={<Editor />} />
+        </Route>
+        <Route
+          path="*"
+          element={
+            <Notice>
+              Página no encontrada. <Link to="/">Volver al inicio</Link>
+            </Notice>
+          }
+        />
+      </Route>
+    </Routes>
+  );
+}
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <Provider store={store}>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </Provider>
+  </React.StrictMode>,
+);

@@ -1,0 +1,39 @@
+import { test,expect } from '@playwright/test';
+test('registro, rol user y protección por URL',async({page})=>{
+  await page.goto('/register');
+  await page.getByLabel('Nombre',{exact:true}).fill('Usuario de prueba');
+  await page.getByLabel('Correo electrónico').fill('browser-user@example.com');
+  await page.getByLabel('Contraseña').fill('BrowserUser123!');
+  await page.getByRole('button',{name:'Crear cuenta',exact:true}).click();
+  await expect(page).toHaveURL('/');
+  await page.goto('/admin/products');await expect(page.getByText('No tenés permisos')).toBeVisible();
+  await page.getByRole('button',{name:'Cerrar sesión'}).click();await expect(page).toHaveURL('/');
+  await page.goto('/admin/products');await expect(page).toHaveURL('/login');
+});
+test('administración, cancelación de modal y efecto público de las dos bajas',async({page})=>{
+  await page.goto('/login');
+  await page.getByLabel('Correo electrónico').fill('admin@example.com');await page.getByLabel('Contraseña').fill('BrowserTest123!');
+  await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL('/');
+  await page.getByRole('link',{name:'Administración'}).click();await page.getByRole('link',{name:'Nuevo producto'}).click();
+  await page.getByLabel('Nombre',{exact:true}).fill('Teclado prueba navegador');await page.getByLabel('Marca').fill('Prueba');
+  await page.getByLabel('Precio en ARS').fill('12345.67');await page.getByLabel('Stock').fill('4');await page.getByLabel('Descripción').fill('Producto de prueba del recorrido completo.');
+  await page.getByRole('button',{name:'Guardar producto'}).click();await expect(page).toHaveURL('/admin/products');
+  await page.getByRole('button',{name:'Archivar Teclado prueba navegador',exact:true}).click();
+  await page.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(page.getByRole('cell',{name:'Teclado prueba navegador Prueba'})).toBeVisible();
+  await page.getByRole('button',{name:'Archivar Teclado prueba navegador',exact:true}).click();await page.getByRole('button',{name:'Archivar',exact:true}).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();await page.getByRole('button',{name:'Archivados',exact:true}).click();
+  await expect(page.getByText('Teclado prueba navegador',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'Restaurar Teclado prueba navegador',exact:true}).click();
+  await page.getByRole('link',{name:'Catálogo',exact:true}).click();await expect(page.getByRole('heading',{name:'Teclado prueba navegador'})).toBeVisible();
+  await page.getByRole('link',{name:'Administración'}).click();await page.getByRole('button',{name:'Archivar Teclado prueba navegador',exact:true}).click();await page.getByRole('button',{name:'Archivar',exact:true}).click();
+  await expect(page.getByRole('dialog')).not.toBeVisible();await page.getByRole('button',{name:'Archivados',exact:true}).click();await page.getByRole('button',{name:'Eliminar definitivamente Teclado prueba navegador',exact:true}).click();
+  await page.getByRole('button',{name:'Eliminar definitivamente',exact:true}).click();await expect(page.getByRole('dialog')).not.toBeVisible();await expect(page.getByText('Teclado prueba navegador',{exact:true})).not.toBeVisible();
+});
+test('catálogo responsive y capturas',async({page})=>{
+  await page.goto('/');await expect(page.getByRole('heading',{name:'Un buen setup cambia tu día.'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Teclado de demostración'})).toBeVisible();
+  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/catalog-desktop.png',fullPage:true});
+  await page.setViewportSize({width:375,height:812});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+  await page.screenshot({path:'test-results/catalog-mobile.png',fullPage:true});
+});
