@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: tecnoya
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: BETTER_AUTH_URL
+        sync: false
