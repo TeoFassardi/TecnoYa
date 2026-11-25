@@ -1,0 +1,28 @@
+{
+  "name": "tecnoya",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "lint": "eslint backend/src frontend/src",
+    "test": "npm run test -w backend",
+    "start": "npm run start -w backend",
+    "seed": "npm run seed -w backend",
+    "admin": "npm run admin -w backend"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.65.1",
+    "concurrently": "^9.2.0",
+    "eslint": "^9.39.0",
+    "typescript-eslint": "^8.48.0"
+  }
+}
