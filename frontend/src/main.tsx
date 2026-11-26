@@ -120,17 +120,24 @@ function Loading({ label, layout }: {
 function Layout() {
   const { data: session } = authClient.useSession();
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, hash, key } = useLocation();
   const navigation = useNavigationType();
   const content = useRef<HTMLElement>(null);
   const previousPath = useRef(pathname);
   const [error, setError] = useState("");
   useLayoutEffect(() => {
-    if (previousPath.current === pathname) return;
+    const changedPage = previousPath.current !== pathname;
     previousPath.current = pathname;
+    if (pathname === "/" && hash === "#catalog") {
+      const catalog = document.getElementById("catalog");
+      catalog?.focus({ preventScroll: true });
+      catalog?.scrollIntoView({ block: "start", behavior: "instant" });
+      return;
+    }
+    if (!changedPage) return;
     content.current?.focus({ preventScroll: true });
     if (navigation !== "POP") window.scrollTo({ top: 0, behavior: "instant" });
-  }, [pathname, navigation]);
+  }, [pathname, hash, key, navigation]);
   async function logout() {
     const result = await authClient.signOut();
     if (result.error) {
@@ -151,7 +158,7 @@ function Layout() {
           <span className="logo-dot" />
         </Link>
         <nav aria-label="Principal">
-          <NavLink to="/" end>Catálogo</NavLink>
+          <NavLink to="/#catalog" end>Catálogo</NavLink>
           {session && <NavLink to="/assistant">Asistente</NavLink>}
           {session?.user.role === "admin" && (
             <>
@@ -220,35 +227,30 @@ function Catalog() {
     <>
       <section className="hero">
         <div className="hero-copy">
-          <p className="hero-kicker">Encontrá tu próxima conexión</p>
           <h1>
             Un buen setup
             <br />
             cambia tu día.
           </h1>
-          <p>
-            Para trabajar, jugar o crear. Explorá periféricos y encontrá lo que
-            va con vos.
-          </p>
-          <a className="button" href="#catalog">
-            Explorar catálogo <ArrowUpRight size={18} />
-          </a>
+          <p>Teclados, mouse, auriculares y monitores para trabajar, jugar o crear.</p>
+          <Link className="button" to="/#catalog">
+            Explorar catálogo <ArrowUpRight size={18} aria-hidden="true" />
+          </Link>
         </div>
         <div className="hero-device">
           <img
             src="/images/catalog-hero.webp"
-            alt="Teclado, mouse y monitor sobre un escritorio azul claro"
+            alt="Teclado mecánico y mouse grafito sobre una superficie azul claro"
             width={1200}
             height={800}
             fetchPriority="high"
           />
         </div>
       </section>
-      <section id="catalog">
+      <section id="catalog" tabIndex={-1} aria-labelledby="catalog-title">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Elegí tu próximo upgrade</p>
-            <h2>El catálogo</h2>
+            <h2 id="catalog-title">El catálogo</h2>
           </div>
           <span className="muted">
             {data ? `${data.total} productos` : ""}
