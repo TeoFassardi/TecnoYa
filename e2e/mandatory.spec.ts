@@ -17,6 +17,10 @@ test('la navegación avisa cuando carga y respeta el movimiento reducido', async
   await expect(page.locator('#main')).toBeFocused();
   await expect(page.locator('#main')).toHaveCSS('animation-name', 'none');
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await page.getByRole('link', { name: 'Catálogo', exact: true }).click();
+  await expect(page).toHaveURL('/#catalog');
+  await expect(page.locator('#catalog')).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'El catálogo' })).toBeInViewport();
 });
 
 test('asistente requiere sesión y enlaza una ficha del catálogo', async ({ page }) => {
@@ -180,7 +184,7 @@ test('administración, cancelación de modal y efecto público de las dos bajas'
 });
 test('catálogo responsive y capturas',async({page})=>{
   await page.goto('/');await expect(page.getByRole('heading',{name:'Un buen setup cambia tu día.'})).toBeVisible();
-  const hero = page.getByRole('img', { name: 'Teclado, mouse y monitor sobre un escritorio azul claro' });
+  const hero = page.getByRole('img', { name: 'Teclado mecánico y mouse grafito sobre una superficie azul claro' });
   await expect.poll(() => hero.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1200);
   await expect(page.getByRole('heading',{name:'Teclado de demostración'})).toBeVisible();
   await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/catalog-desktop.png',fullPage:true});

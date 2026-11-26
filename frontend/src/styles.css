@@ -117,18 +117,17 @@ header nav a[aria-current="page"] {
 }
 .hero {
   display: grid;
-  grid-template-columns: 1.05fr 1fr;
-  gap: 32px;
-  padding: 65px 0 70px;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  margin: 36px 0 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #eef4fa;
+  overflow: hidden;
   align-items: stretch;
 }
 .hero-copy {
-  padding: 20px 0;
-}
-.hero-kicker {
-  color: var(--blue);
-  font-weight: 600;
-  font-size: 14px;
+  align-self: center;
+  padding: clamp(28px, 4vw, 58px);
 }
 h1,
 h2,
@@ -153,22 +152,19 @@ h4 {
   letter-spacing: -0.02em;
 }
 .hero h1 {
-  font-size: clamp(38px, 4.8vw, 62px);
+  font-size: clamp(36px, 4.35vw, 62px);
   font-weight: 800;
-  margin: 20px 0 22px;
+  margin: 0;
 }
-.hero-copy > p:not(.hero-kicker) {
-  max-width: 390px;
-  line-height: 1.7;
+.hero-copy > p {
+  max-width: 34ch;
+  line-height: 1.65;
   color: var(--muted);
-  margin-bottom: 30px;
+  margin: 18px 0 26px;
 }
 .hero-device {
   position: relative;
-  background: #edf3ff;
-  border-radius: 12px;
-  min-height: 340px;
-  overflow: hidden;
+  min-height: clamp(320px, 35vw, 440px);
 }
 .hero-device > img {
   position: absolute;
@@ -177,6 +173,9 @@ h4 {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+#catalog:focus {
+  outline: none;
 }
 .section-heading {
   display: flex;
@@ -663,17 +662,11 @@ main > section[id] {
     gap: 35px;
     padding: 50px 0;
   }
-  .hero {
-    gap: 20px;
-  }
   .user-name {
     display: none;
   }
   .detail {
     gap: 30px;
-  }
-  .hero-device {
-    min-height: 300px;
   }
 }
 @media (max-width: 620px) {
@@ -698,13 +691,13 @@ main > section[id] {
   }
   .hero {
     grid-template-columns: 1fr;
-    padding: 30px 0;
+    margin: 18px 0 12px;
   }
   .hero-copy {
-    padding: 0;
+    padding: 28px 22px;
   }
   .hero h1 {
-    font-size: 44px;
+    font-size: clamp(34px, 9.6vw, 44px);
   }
   .hero-device {
     aspect-ratio: 3 / 2;
