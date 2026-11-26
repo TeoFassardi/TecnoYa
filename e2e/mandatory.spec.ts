@@ -83,6 +83,9 @@ test('registro, rol user y protección por URL',async({page})=>{
   await page.getByLabel('Contraseña').fill('BrowserUser123!');
   await page.getByRole('button',{name:'Crear cuenta',exact:true}).click();
   await expect(page).toHaveURL('/');
+  await page.getByRole('link', { name: /Teclado de demostración/ }).click();
+  await expect(page.getByRole('heading', { name: 'Teclado de demostración' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Editar producto' })).toHaveCount(0);
   await page.goto('/admin/products');await expect(page.getByText('No tenés permisos')).toBeVisible();
   await page.getByRole('button',{name:'Cerrar sesión'}).click();await expect(page).toHaveURL('/');
   await page.goto('/admin/products');await expect(page).toHaveURL('/login');
@@ -112,6 +115,17 @@ test('administración, cancelación de modal y efecto público de las dos bajas'
   const image = page.getByRole('img', { name: 'Teclado prueba navegador' });
   await expect(image).toHaveAttribute('src', 'https://storage.example.com/fixture.png');
   await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);
+  await image.click();
+  const detailUrl = page.url();
+  await page.getByRole('link', { name: 'Editar producto' }).click();
+  await expect(page.getByRole('heading', { name: 'Editar producto' })).toBeVisible();
+  await page.getByRole('link', { name: 'Cancelar', exact: true }).click();
+  await expect(page).toHaveURL(detailUrl);
+  await page.getByRole('link', { name: 'Editar producto' }).click();
+  await page.getByLabel('Stock').fill('7');
+  await page.getByRole('button', { name: 'Guardar producto' }).click();
+  await expect(page).toHaveURL(detailUrl);
+  await expect(page.getByText('7 unidades disponibles')).toBeVisible();
   await page.getByRole('link',{name:'Administración'}).click();await page.getByRole('button',{name:'Archivar Teclado prueba navegador',exact:true}).click();await page.getByRole('button',{name:'Archivar',exact:true}).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();await page.getByRole('button',{name:'Archivados',exact:true}).click();await page.getByRole('button',{name:'Eliminar definitivamente Teclado prueba navegador',exact:true}).click();
   await page.getByRole('button',{name:'Eliminar definitivamente',exact:true}).click();await expect(page.getByRole('dialog')).not.toBeVisible();await expect(page.getByText('Teclado prueba navegador',{exact:true})).not.toBeVisible();

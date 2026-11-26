@@ -246,6 +246,7 @@ function Catalog() {
 function Detail() {
   const { id = "" } = useParams();
   const { data, isLoading, isError } = api.useProductQuery({ id });
+  const { data: session } = authClient.useSession();
   if (isLoading) return <Notice>Cargando producto…</Notice>;
   if (isError || !data)
     return (
@@ -273,6 +274,12 @@ function Detail() {
           <p className="muted">
             Catálogo informativo. No se realizan compras desde este sitio.
           </p>
+          {session?.user.role === "admin" && (
+            <Link className="button subtle" to={`/admin/products/${data._id}/edit?from=catalogo`}>
+              <Pencil size={18} aria-hidden="true" />
+              Editar producto
+            </Link>
+          )}
         </div>
       </div>
     </section>
@@ -674,6 +681,9 @@ function encodeImage(file: File): Promise<string> {
 
 function Editor() {
   const { id } = useParams();
+  const [params] = useSearchParams();
+  const fromCatalog = Boolean(id && params.get("from") === "catalogo");
+  const returnTo = fromCatalog ? `/products/${id}` : "/admin/products";
   const { data, isLoading, isError } = api.useProductQuery(
     { id: id ?? "", admin: true },
     { skip: !id },
@@ -719,7 +729,7 @@ function Editor() {
   if (isError)
     return (
       <Notice>
-        No pudimos cargar el producto. <Link to="/admin/products">Volver</Link>
+        No pudimos cargar el producto. <Link to={returnTo}>Volver</Link>
       </Notice>
     );
   const submit = handleSubmit(async ({ price, ...values }) => {
@@ -733,15 +743,15 @@ function Editor() {
         id,
         data: { ...values, priceCents: Math.round(price * 100), ...imageData },
       }).unwrap();
-      navigate("/admin/products");
+      navigate(returnTo, { replace: fromCatalog });
     } catch (e) {
       setError(e instanceof Error ? e.message : errorMessage(e));
     }
   });
   return (
     <section className="editor">
-      <Link className="back" to="/admin/products">
-        Volver a productos
+      <Link className="back" to={returnTo} replace={fromCatalog}>
+        {fromCatalog ? "Volver a la ficha" : "Volver a productos"}
       </Link>
       <h1>{id ? "Editar producto" : "Nuevo producto"}</h1>
       <form className="form-panel" onSubmit={submit} noValidate>
@@ -835,7 +845,7 @@ function Editor() {
           </p>
         )}
         <div className="actions">
-          <Link className="button subtle" to="/admin/products">
+          <Link className="button subtle" to={returnTo} replace={fromCatalog}>
             Cancelar
           </Link>
           <button className="button" disabled={busy || isSubmitting || Boolean(imageError)}>
