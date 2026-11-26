@@ -79,7 +79,14 @@ El alta y la edición aceptan `imageBase64` para la carga. Omitir el campo conse
 3. En una terminal con acceso al entorno del backend: `npm run admin -- correo@ejemplo.com` para promover esa cuenta existente.
 4. Acceder a `/admin/products`. La autorización se comprueba en el servidor, no solo en la interfaz.
 
-No existe una contraseña administrativa predeterminada. Las credenciales de entrega se comparten por separado.
+### Cuentas de evaluación en producción
+
+| Rol | Correo |
+| --- | --- |
+| `user` | `usuario@tecnoya.example` |
+| `admin` | `admin@tecnoya.example` |
+
+Las contraseñas de estas cuentas se entregan al docente por correo.
 
 ## API REST
 
