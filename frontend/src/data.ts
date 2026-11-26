@@ -26,14 +26,24 @@ export type ProductInput = Pick<
   | "stock"
   | "imageUrl"
 >;
+interface ProductPage {
+  items: Product[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export const api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({ baseUrl: "/api", credentials: "include" }),
   tagTypes: ["Products"],
   endpoints: (builder) => ({
-    products: builder.query<{ items: Product[] }, string | void>({
-      query: (status) =>
-        status ? `/admin/products?status=${status}` : "/products",
+    products: builder.query<ProductPage, { page: number; status?: string; category?: string }>({
+      query: ({ status, ...params }) => ({
+        url: status ? "/admin/products" : "/products",
+        params: status ? { ...params, status } : params,
+      }),
       providesTags: ["Products"],
     }),
     product: builder.query<Product, { id: string; admin?: boolean }>({

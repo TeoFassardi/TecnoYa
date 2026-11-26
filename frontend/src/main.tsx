@@ -123,8 +123,33 @@ function Layout() {
     </>
   );
 }
+function Pagination({ page, totalPages, onChange }: {
+  page: number;
+  totalPages: number;
+  onChange: (page: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  return (
+    <nav className="pagination" aria-label="Paginación de productos">
+      <button className="button subtle" disabled={page <= 1} onClick={() => onChange(page - 1)}>
+        Anterior
+      </button>
+      <span role="status">Página {page} de {totalPages}</span>
+      <button className="button subtle" disabled={page >= totalPages} onClick={() => onChange(page + 1)}>
+        Siguiente
+      </button>
+    </nav>
+  );
+}
+
 function Catalog() {
-  const { data, isLoading, isError, refetch } = api.useProductsQuery();
+  const [page, setPage] = useState(1);
+  const [category, setCategory] = useState<string>();
+  const { currentData: data, isFetching, isError, refetch } = api.useProductsQuery({ page, category });
+  function selectCategory(value?: string) {
+    setCategory(value);
+    setPage(1);
+  }
   return (
     <>
       <section className="hero">
@@ -156,18 +181,21 @@ function Catalog() {
             <h2>El catálogo</h2>
           </div>
           <span className="muted">
-            {data ? `${data.items.length} productos` : ""}
+            {data ? `${data.total} productos` : ""}
           </span>
         </div>
         <div className="category-strip">
+          <button className="button subtle" aria-pressed={!category} onClick={() => selectCategory()}>
+            Todos
+          </button>
           {categories.map(({ id, name, Icon }) => (
-            <a href={`#${id}`} key={id}>
+            <button className="button subtle" aria-pressed={category === id} onClick={() => selectCategory(id)} key={id}>
               <Icon size={22} />
               {name}
-            </a>
+            </button>
           ))}
         </div>
-        {isLoading ? (
+        {isFetching && !data ? (
           <Notice>Cargando productos…</Notice>
         ) : isError ? (
           <Notice>
@@ -208,6 +236,7 @@ function Catalog() {
             ) : null;
           })
         )}
+        {data && <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />}
       </section>
     </>
   );
@@ -426,7 +455,15 @@ function Confirm({
 }
 function Admin() {
   const [status, setStatus] = useState("active");
-  const { data, isLoading, isError, refetch } = api.useProductsQuery(status);
+  const [page, setPage] = useState(1);
+  const { currentData: data, isFetching, isError, refetch } = api.useProductsQuery({ page, status });
+  function selectStatus(value: string) {
+    setStatus(value);
+    setPage(1);
+  }
+  useEffect(() => {
+    if (data && !isFetching && data.page < page) setPage(data.page);
+  }, [data, isFetching, page]);
   const [mutate, { isLoading: busy }] = api.useActionMutation();
   const [selected, setSelected] = useState<{
     product: Product;
@@ -466,19 +503,19 @@ function Admin() {
       <div className="tabs">
         <button
           aria-pressed={status === "active"}
-          onClick={() => setStatus("active")}
+          onClick={() => selectStatus("active")}
         >
           Activos
         </button>
         <button
           aria-pressed={status === "archived"}
-          onClick={() => setStatus("archived")}
+          onClick={() => selectStatus("archived")}
         >
           Archivados
         </button>
       </div>
       {message && <Notice>{message}</Notice>}
-      {isLoading ? (
+      {isFetching && !data ? (
         <Notice>Cargando productos…</Notice>
       ) : isError ? (
         <Notice>
@@ -559,6 +596,7 @@ function Admin() {
           </table>
         </div>
       )}
+      {data && <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />}
       {selected && (
         <Confirm
           {...selected}
