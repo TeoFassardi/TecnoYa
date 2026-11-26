@@ -1,4 +1,27 @@
 import { test,expect } from '@playwright/test';
+
+test('catálogo cambia de página y reinicia al filtrar por categoría', async ({ page }) => {
+  await page.route(/\/api\/products\?/, (route) => {
+    const url = new URL(route.request().url());
+    url.searchParams.set('limit', '2');
+    return route.continue({ url: url.toString() });
+  });
+
+  await page.goto('/');
+  await expect(page.getByText('Página 1 de 2')).toBeVisible();
+  const products = page.locator('.product-card');
+  await expect(products).toHaveCount(2);
+  const firstPage = await products.first().getAttribute('href');
+  await page.getByRole('button', { name: 'Siguiente' }).click();
+  await expect(page.getByText('Página 2 de 2')).toBeVisible();
+  await expect(products).toHaveCount(2);
+  await expect(page.locator(`[href="${firstPage}"]`)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Teclados' }).click();
+  await expect(page.getByRole('heading', { name: 'Teclado de demostración' })).toBeVisible();
+  await expect(products).toHaveCount(1);
+  await page.getByRole('button', { name: 'Todos' }).click();
+  await expect(page.getByText('Página 1 de 2')).toBeVisible();
+});
 test('registro, rol user y protección por URL',async({page})=>{
   await page.goto('/register');
   await page.getByLabel('Nombre',{exact:true}).fill('Usuario de prueba');

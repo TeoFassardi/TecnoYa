@@ -55,6 +55,8 @@ No existe una contraseña administrativa predeterminada. Las credenciales de ent
 
 Autenticación Better Auth bajo `/api/auth`: registro `/sign-up/email`, login `/sign-in/email`, logout `/sign-out` y consulta `/get-session`. Contraseña mínima de 8 caracteres.
 
+Los listados público y administrativo aceptan `?page=2&limit=12`. La página inicial es 1 y el límite predeterminado es 12, con un máximo de 50. La respuesta incluye `items`, `page`, `limit`, `total` y `totalPages`. Si la página solicitada supera la última disponible, se devuelve la última. El catálogo público admite `category` para paginar dentro de una categoría.
+
 Producto: `name`, `description`, `brand`, `category`, `priceCents`, `stock`, `imageUrl`, `archivedAt`, `createdAt`, `updatedAt`. Categorías: `teclados`, `mouse`, `auriculares`, `monitores`. `priceCents` es un entero positivo en centavos ARS; stock es entero no negativo. La URL HTTPS de imagen es opcional en esta etapa.
 
 Los errores de la API de productos contienen `code`, `message` y opcionalmente `fields`. Better Auth conserva su propio formato de errores. Archivar oculta públicamente; restaurar vuelve a publicar; eliminar definitivamente borra de MongoDB. Las dos bajas requieren confirmación en la interfaz.
@@ -78,6 +80,6 @@ El build usa `npm ci --include=dev && npm run build` para instalar las herramien
 
 ## Etapas pendientes
 
-Después de verificar los obligatorios en producción: paginación, Google OAuth, administración de usuarios y sesiones, Swagger **2.0**, carga de imágenes en Supabase Storage (MongoDB guarda solo URL), agente LangChain/Groq con herramientas de consulta y comparación. No se presentan estos opcionales como implementados todavía.
+Quedan pendientes Google OAuth, administración de usuarios y sesiones, Swagger **2.0**, carga de imágenes en Supabase Storage (MongoDB guarda solo URL) y el agente LangChain/Groq con herramientas de consulta y comparación.
 
 Todo cambio se trabaja en una rama y se incorpora mediante PR con descripción y pasos de verificación. No subir `.env`, credenciales ni archivos locales de Engram.

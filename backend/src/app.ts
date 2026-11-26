@@ -11,7 +11,30 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import type { Auth } from "./auth.js";
-import { Product, productInput } from "./product.js";
+import { categories, Product, productInput } from "./product.js";
+
+const pagination = z.object({
+  page: z.string().regex(/^\d+$/).transform(Number)
+    .pipe(z.number().int().positive()).default(1),
+  limit: z.string().regex(/^\d+$/).transform(Number)
+    .pipe(z.number().int().min(1).max(50)).default(12),
+});
+
+async function listProducts(
+  filter: { archivedAt: null | { $ne: null }; category?: string },
+  query: unknown,
+) {
+  const { page, limit } = pagination.parse(query);
+  const total = await Product.countDocuments(filter);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const currentPage = Math.min(page, totalPages);
+  const items = await Product.find(filter)
+    .sort({ createdAt: -1, _id: -1 })
+    .skip((currentPage - 1) * limit)
+    .limit(limit)
+    .lean();
+  return { items, page: currentPage, limit, total, totalPages };
+}
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -72,13 +95,13 @@ export function createApp(auth: Auth, origin: string) {
         status: mongoose.connection.readyState === 1 ? "ok" : "unavailable",
       }),
   );
-  app.get("/api/products", async (_req, res) =>
-    res.json({
-      items: await Product.find({ archivedAt: null })
-        .sort({ createdAt: -1 })
-        .lean(),
-    }),
-  );
+  app.get("/api/products", async (req, res) => {
+    const category = z.enum(categories).optional().parse(req.query.category);
+    res.json(await listProducts({
+      archivedAt: null,
+      ...(category && { category }),
+    }, req.query));
+  });
   app.get("/api/products/:id", validId, async (req, res) => {
     const product = await Product.findOne({
       _id: req.params.id,
@@ -93,13 +116,9 @@ export function createApp(auth: Auth, origin: string) {
       .enum(["active", "archived"])
       .default("active")
       .parse(req.query.status);
-    res.json({
-      items: await Product.find({
-        archivedAt: status === "archived" ? { $ne: null } : null,
-      })
-        .sort({ createdAt: -1 })
-        .lean(),
-    });
+    res.json(await listProducts({
+      archivedAt: status === "archived" ? { $ne: null } : null,
+    }, req.query));
   });
   app.get("/api/admin/products/:id", validId, async (req, res) => {
     const product = await Product.findById(req.params.id).lean();

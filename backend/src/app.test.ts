@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import request from "supertest";
 import { createAuth } from "./auth.js";
 import { createApp } from "./app.js";
+import { Product } from "./product.js";
 let mongo: MongoMemoryReplSet;
 let authBundle: ReturnType<typeof createAuth>;
 let app: ReturnType<typeof createApp>;
@@ -172,6 +173,40 @@ describe("Permisos y ciclo completo del catálogo", () => {
       ).status,
     ).toBe(401);
   });
+  it("pagina sin repetir productos y ajusta la última página tras una baja", async () => {
+    const products = await Product.insertMany([
+      product,
+      { ...product, name: "Otro teclado" },
+      { ...product, category: "mouse", archivedAt: new Date() },
+    ]);
+    try {
+      const first = await request(app).get("/api/products?page=1&limit=1");
+      const second = await request(app).get("/api/products?page=2&limit=1");
+      expect(first.body).toMatchObject({ page: 1, total: 2, totalPages: 2 });
+      expect(second.body).toMatchObject({ page: 2, total: 2, totalPages: 2 });
+      expect(first.body.items[0]._id).not.toBe(second.body.items[0]._id);
+      expect((await request(app).get("/api/products?limit=51")).status).toBe(400);
+      expect((await request(app).get("/api/products?page=0")).status).toBe(400);
+
+      await request(app)
+        .delete(`/api/products/${second.body.items[0]._id}`)
+        .set("Cookie", adminCookie)
+        .expect(204);
+      const active = await request(app)
+        .get("/api/admin/products?status=active&page=2&limit=1")
+        .set("Cookie", adminCookie);
+      expect(active.body).toMatchObject({ page: 1, total: 1, totalPages: 1 });
+      const archived = await request(app)
+        .get("/api/admin/products?status=archived&limit=1")
+        .set("Cookie", adminCookie);
+      expect(archived.body).toMatchObject({ page: 1, total: 2, totalPages: 2 });
+      const filtered = await request(app).get("/api/products?category=mouse");
+      expect(filtered.body.items).toEqual([]);
+    } finally {
+      await Product.deleteMany({ _id: { $in: products.map(({ _id }) => _id) } });
+    }
+  });
+
   it("cerrar sesión invalida el acceso administrativo", async () => {
     expect(
       (
