@@ -25,10 +25,21 @@ Usar localhost de forma consistente con `BETTER_AUTH_URL` para las cookies y la 
 | `MONGODB_URI` | Cadena de conexión MongoDB, con nombre de base. Nunca versionar credenciales. |
 | `BETTER_AUTH_SECRET` | Secreto aleatorio de al menos 32 caracteres. |
 | `BETTER_AUTH_URL` | Origen público completo: `http://localhost:5173` en desarrollo; URL HTTPS real en producción. |
+| `GOOGLE_CLIENT_ID` | ID del cliente OAuth web de Google. |
+| `GOOGLE_CLIENT_SECRET` | Secreto del cliente OAuth, configurado junto con el ID en el backend. |
 | `PORT` | Puerto del backend, 3000 por defecto; Render lo asigna. |
 | `NODE_ENV` | `development`, `test` o `production`. |
 
-El frontend utiliza rutas relativas `/api`, sin secretos ni variables obligatorias. Las variables de Google, almacenamiento e IA se agregarán al implementar los opcionales.
+El frontend utiliza rutas relativas `/api`, sin secretos ni variables obligatorias.
+
+## Inicio de sesión con Google
+
+1. En [Google Auth Platform](https://console.cloud.google.com/auth/clients), configurá la pantalla de consentimiento y creá un cliente OAuth de tipo **Aplicación web**.
+2. Registrá exactamente `https://tecnoya.onrender.com/api/auth/callback/google` como URI de redireccionamiento autorizada. Para desarrollo local, usá un cliente de prueba con `http://localhost:5173/api/auth/callback/google`.
+3. Cargá `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` en Render y desplegá `main`. En desarrollo podés cargarlos en `backend/.env`. Ambos pueden quedar vacíos para usar solo el acceso con contraseña.
+4. Desde `/login`, elegí **Continuar con Google**. Probá con una cuenta nueva en TecnoYa y verificá el regreso al catálogo, la sesión activa y el acceso denegado a `/admin/products`.
+
+Las cuentas nuevas reciben el rol `user`. Si el correo ya está registrado con contraseña, usá ese método de ingreso para esa cuenta.
 
 ## Datos y administrador
 
@@ -80,6 +91,6 @@ El build usa `npm ci --include=dev && npm run build` para instalar las herramien
 
 ## Etapas pendientes
 
-Quedan pendientes Google OAuth, administración de usuarios y sesiones, Swagger **2.0**, carga de imágenes en Supabase Storage (MongoDB guarda solo URL) y el agente LangChain/Groq con herramientas de consulta y comparación.
+Quedan pendientes administración de usuarios y sesiones, Swagger **2.0**, carga de imágenes en Supabase Storage (MongoDB guarda solo URL) y el agente LangChain/Groq con herramientas de consulta y comparación.
 
 Todo cambio se trabaja en una rama y se incorpora mediante PR con descripción y pasos de verificación. No subir `.env`, credenciales ni archivos locales de Engram.

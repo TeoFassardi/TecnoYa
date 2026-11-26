@@ -1,5 +1,11 @@
 import { test,expect } from '@playwright/test';
 
+test('ingreso con Google informa un intento cancelado', async ({ page }) => {
+  await page.goto('/login?google=1&error=access_denied');
+  await expect(page.getByRole('alert')).toContainText('No se completó el ingreso con Google');
+  await expect(page.getByRole('button', { name: 'Continuar con Google' })).toBeEnabled();
+});
+
 test('catálogo cambia de página y reinicia al filtrar por categoría', async ({ page }) => {
   await page.route(/\/api\/products\?/, (route) => {
     const url = new URL(route.request().url());
