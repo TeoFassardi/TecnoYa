@@ -37,6 +37,7 @@ beforeAll(async () => {
     uri,
     "test-only-secret-with-more-than-32-characters",
     origin,
+    { clientId: "test-client.apps.googleusercontent.com", clientSecret: "test-only" },
   );
   await authBundle.client.connect();
   app = createApp(authBundle.auth, origin);
@@ -53,6 +54,20 @@ afterAll(async () => {
   await mongo?.stop();
 });
 describe("Permisos y ciclo completo del catálogo", () => {
+  it("inicia OAuth de Google con el callback de TecnoYa", async () => {
+    const response = await request(app)
+      .post("/api/auth/sign-in/social")
+      .set("Origin", origin)
+      .send({ provider: "google", callbackURL: "/", errorCallbackURL: "/login?google=1" })
+      .expect(200);
+    const authorization = new URL(response.body.url);
+    expect(authorization.origin).toBe("https://accounts.google.com");
+    expect(authorization.searchParams.get("redirect_uri")).toBe(
+      `${origin}/api/auth/callback/google`,
+    );
+    expect(authorization.searchParams.get("state")).toBeTruthy();
+  });
+
   it("persiste usuarios y sesiones y asigna rol user por defecto", async () => {
     const response = await request(app)
       .get("/api/auth/get-session")

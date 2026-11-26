@@ -10,6 +10,7 @@ import {
   Routes,
   useNavigate,
   useParams,
+  useSearchParams,
 } from "react-router";
 import {
   Keyboard,
@@ -280,8 +281,28 @@ const authSchema = z.object({
 });
 function AuthForm({ register = false }: { register?: boolean }) {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [googlePending, setGooglePending] = useState(false);
+  const googleError = params.has("google") && params.has("error");
+  async function signInWithGoogle() {
+    setError("");
+    setParams({}, { replace: true });
+    setGooglePending(true);
+    try {
+      const { error } = await authClient.signIn.social({
+        provider: "google",
+        callbackURL: "/",
+        errorCallbackURL: "/login?google=1",
+      });
+      if (!error) return;
+      setError("No pudimos iniciar sesión con Google. Intentá nuevamente.");
+    } catch {
+      setError("No pudimos conectar con el servidor. Intentá nuevamente.");
+    }
+    setGooglePending(false);
+  }
   const {
     register: field,
     handleSubmit,
@@ -351,13 +372,21 @@ function AuthForm({ register = false }: { register?: boolean }) {
             <span className="field-error">{errors.password.message}</span>
           )}
         </label>
-        {error && (
+        {(error || googleError) && (
           <p className="field-error" role="alert">
-            {error}
+            {error || "No se completó el ingreso con Google. Si ya tenés una cuenta con ese correo, ingresá con tu contraseña."}
           </p>
         )}
-        <button className="button" disabled={pending}>
+        <button className="button" disabled={pending || googlePending}>
           {pending ? "Procesando…" : register ? "Crear cuenta" : "Ingresar"}
+        </button>
+        <button
+          className="button subtle"
+          type="button"
+          disabled={pending || googlePending}
+          onClick={() => void signInWithGoogle()}
+        >
+          {googlePending ? "Conectando con Google…" : "Continuar con Google"}
         </button>
         <p>
           {register ? "¿Ya tenés cuenta?" : "¿Primera vez por acá?"}{" "}

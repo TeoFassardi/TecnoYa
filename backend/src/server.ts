@@ -7,6 +7,12 @@ const { auth, client } = createAuth(
   config.MONGODB_URI,
   config.BETTER_AUTH_SECRET,
   config.BETTER_AUTH_URL,
+  config.GOOGLE_CLIENT_ID && config.GOOGLE_CLIENT_SECRET
+    ? {
+        clientId: config.GOOGLE_CLIENT_ID,
+        clientSecret: config.GOOGLE_CLIENT_SECRET,
+      }
+    : undefined,
 );
 await client.connect();
 const server = createApp(auth, config.BETTER_AUTH_URL).listen(
