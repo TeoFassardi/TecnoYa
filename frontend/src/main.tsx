@@ -162,34 +162,16 @@ function Catalog() {
     <>
       <section className="hero">
         <div className="hero-copy">
-          <p className="hero-kicker">Encontrá tu próxima conexión</p>
-          <h1>
-            Un buen setup
-            <br />
-            cambia tu día.
-          </h1>
-          <p>
-            Para trabajar, jugar o crear. Explorá periféricos y encontrá lo que
-            va con vos.
-          </p>
-          <a className="button" href="#catalog">
-            Explorar catálogo <ArrowUpRight size={18} />
-          </a>
+          <h1>Un buen setup cambia tu día.</h1>
+          <p>Explorá teclados, mouse, auriculares y monitores para trabajar, jugar o crear.</p>
         </div>
-        <div className="hero-device">
-          <img
-            src="/images/catalog-hero.webp"
-            alt="Teclado, mouse y monitor sobre un escritorio azul claro"
-            width={1200}
-            height={800}
-            fetchPriority="high"
-          />
-        </div>
+        <a className="button" href="#catalog">
+          Explorar catálogo <ArrowUpRight size={18} aria-hidden="true" />
+        </a>
       </section>
       <section id="catalog">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Elegí tu próximo upgrade</p>
             <h2>El catálogo</h2>
           </div>
           <span className="muted">

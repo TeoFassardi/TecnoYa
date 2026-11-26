@@ -161,8 +161,7 @@ test('administración, cancelación de modal y efecto público de las dos bajas'
 });
 test('catálogo responsive y capturas',async({page})=>{
   await page.goto('/');await expect(page.getByRole('heading',{name:'Un buen setup cambia tu día.'})).toBeVisible();
-  const hero = page.getByRole('img', { name: 'Teclado, mouse y monitor sobre un escritorio azul claro' });
-  await expect.poll(() => hero.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1200);
+  await expect(page.getByRole('link', { name: 'Explorar catálogo' })).toHaveAttribute('href', '#catalog');
   await expect(page.getByRole('heading',{name:'Teclado de demostración'})).toBeVisible();
   await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/catalog-desktop.png',fullPage:true});
   await page.setViewportSize({width:375,height:812});
