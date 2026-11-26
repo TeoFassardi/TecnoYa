@@ -39,7 +39,10 @@ export const api = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: "/api", credentials: "include" }),
   tagTypes: ["Products"],
   endpoints: (builder) => ({
-    products: builder.query<ProductPage, { page: number; status?: string; category?: string }>({
+    products: builder.query<
+      ProductPage,
+      { page: number; limit?: number; status?: string; category?: string }
+    >({
       query: ({ status, ...params }) => ({
         url: status ? "/admin/products" : "/products",
         params: status ? { ...params, status } : params,
