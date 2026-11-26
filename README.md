@@ -30,6 +30,8 @@ Usar localhost de forma consistente con `BETTER_AUTH_URL` para las cookies y la 
 | `SUPABASE_URL` | URL HTTPS del proyecto Supabase para Storage. |
 | `SUPABASE_SECRET_KEY` | Clave secreta del proyecto. Se configura solo en el backend. |
 | `SUPABASE_STORAGE_BUCKET` | Nombre del bucket público, `product-images` por defecto. |
+| `GROQ_API_KEY` | Clave de Groq para habilitar el asistente, solo en el backend. |
+| `GROQ_MODEL` | Modelo con soporte de herramientas. El predeterminado es `openai/gpt-oss-20b`. |
 | `PORT` | Puerto del backend, 3000 por defecto; Render lo asigna. |
 | `NODE_ENV` | `development`, `test` o `production`. |
 
@@ -106,8 +108,10 @@ La aplicación está disponible en [TecnoYa](https://tecnoya.onrender.com). Para
 
 El build usa `npm ci --include=dev && npm run build` para instalar las herramientas de compilación. El servicio arranca con `npm start` y comprueba su estado en `/api/health`. Desplegá manualmente después de integrar los PR a `main`. La app puede tardar en arrancar tras un período de inactividad en el plan gratuito.
 
-## Etapas pendientes
+## Asistente del catálogo
 
-Queda pendiente el agente LangChain/Groq con herramientas de consulta y comparación.
+Creá una clave desde [Groq Console](https://console.groq.com/keys) en una cuenta del plan gratuito. Cargá `GROQ_API_KEY` en Render y desplegá `main`. Para probar localmente, cargala en `backend/.env`. Con sesión iniciada, entrá a **Asistente** y preguntá, por ejemplo, «¿Qué teclados tienen stock?».
+
+`POST /api/assistant/chat` requiere sesión. LangChain usa Groq para elegir herramientas que consultan productos activos de MongoDB por nombre, marca, categoría, presupuesto y stock, o comparan productos por ID. Las fichas y enlaces provienen de esas consultas. El historial reciente viaja con cada pregunta y se mantiene en la pantalla mientras el chat está abierto. TecnoYa limita las solicitudes a seis por minuto por cuenta.
 
 Todo cambio se trabaja en una rama y se incorpora mediante PR con descripción y pasos de verificación. No subir `.env`, credenciales ni archivos locales de Engram.

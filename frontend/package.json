@@ -10,14 +10,19 @@
   "dependencies": {
     "@hookform/resolvers": "^5.2.0",
     "@reduxjs/toolkit": "^2.11.0",
+    "@tailwindcss/vite": "^4.3.5",
     "better-auth": "^1.4.0",
+    "class-variance-authority": "^0.7.1",
+    "cn": "^0.5.2",
+    "lucide-react": "^0.468.0",
+    "radix-ui": "^1.8.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.66.0",
     "react-redux": "^9.2.0",
     "react-router": "^7.9.0",
-    "zod": "^4.1.0",
-    "lucide-react": "^0.468.0"
+    "tailwindcss": "^4.3.5",
+    "zod": "^4.1.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",

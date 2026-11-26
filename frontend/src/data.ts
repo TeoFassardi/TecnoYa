@@ -45,12 +45,24 @@ interface ManagedSession {
   expiresAt: string;
   userAgent?: string | null;
 }
+export interface AssistantMessage {
+  role: "user" | "assistant";
+  text: string;
+  products?: AssistantProduct[];
+}
+export type AssistantProduct = Pick<Product, "name" | "brand" | "category" | "priceCents" | "stock" | "imageUrl"> & { id: string };
 
 export const api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({ baseUrl: "/api", credentials: "include" }),
   tagTypes: ["Products", "Users", "Sessions"],
   endpoints: (builder) => ({
+    chat: builder.mutation<
+      { message: string; products: AssistantProduct[] },
+      { message: string; history: Pick<AssistantMessage, "role" | "text">[] }
+    >({
+      query: (body) => ({ url: "/assistant/chat", method: "POST", body }),
+    }),
     users: builder.query<{ items: ManagedUser[]; page: number; totalPages: number }, number>({
       query: (page) => ({ url: "/admin/users", params: { page } }),
       providesTags: ["Users"],

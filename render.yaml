@@ -26,3 +26,7 @@ services:
         sync: false
       - key: SUPABASE_STORAGE_BUCKET
         value: product-images
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b

@@ -9,6 +9,8 @@ export const config = z
     SUPABASE_URL: z.union([z.literal(""), z.url({ protocol: /^https$/ })]).optional(),
     SUPABASE_SECRET_KEY: z.string().trim().optional(),
     SUPABASE_STORAGE_BUCKET: z.string().trim().min(1).default("product-images"),
+    GROQ_API_KEY: z.string().trim().optional(),
+    GROQ_MODEL: z.string().trim().min(1).default("openai/gpt-oss-20b"),
     PORT: z.coerce.number().int().positive().default(3000),
     NODE_ENV: z
       .enum(["development", "test", "production"])

@@ -1,5 +1,25 @@
 import { test,expect } from '@playwright/test';
 
+test('asistente requiere sesión y enlaza una ficha del catálogo', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/assistant');
+  await expect(page).toHaveURL('/login');
+  await page.getByLabel('Correo electrónico').fill('admin@example.com');
+  await page.getByLabel('Contraseña').fill('BrowserTest123!');
+  await page.getByRole('button', { name: 'Ingresar', exact: true }).click();
+  await page.getByRole('link', { name: 'Asistente', exact: true }).click();
+  await page.getByRole('button', { name: '¿Qué teclados tienen stock?' }).click();
+  await expect(page.getByText('Encontré un teclado con stock en el catálogo.')).toBeVisible();
+  const product = page.getByRole('link', { name: /Teclado de demostración/ });
+  await expect(product).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  await page.screenshot({ path: 'test-results/assistant-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.screenshot({ path: 'test-results/assistant-desktop.png', fullPage: true });
+  await product.click();
+  await expect(page.getByRole('heading', { name: 'Teclado de demostración' })).toBeVisible();
+});
+
 test('Swagger UI carga la especificación y consulta el catálogo', async ({ page }) => {
   await page.goto('/api/docs');
   await expect(page.getByRole('heading', { name: /API de TecnoYa/ })).toBeVisible();

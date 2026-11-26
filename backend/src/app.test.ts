@@ -6,6 +6,8 @@ import { createAuth } from "./auth.js";
 import { createApp } from "./app.js";
 import { Product } from "./product.js";
 import SwaggerParser from "@apidevtools/swagger-parser";
+import { ChatGroq } from "@langchain/groq";
+import { buildCatalogAssistant } from "./catalog-assistant.js";
 import type { ImageStorage } from "./image-storage.js";
 import { randomUUID } from "node:crypto";
 let mongo: MongoMemoryReplSet;
@@ -68,6 +70,61 @@ afterAll(async () => {
   await mongo?.stop();
 });
 describe("Permisos y ciclo completo del catálogo", () => {
+  it("usa herramientas de LangChain para comparar únicamente productos activos", async () => {
+    const fixtures = await Product.insertMany([
+      { ...product, name: "Teclado recomendado" },
+      { ...product, name: "Teclado alternativo", priceCents: 1400000 },
+      { ...product, name: "Teclado archivado", archivedAt: new Date() },
+      { ...product, name: "Teclado sin stock", stock: 0 },
+    ]);
+    const ids = fixtures.slice(0, 2).map(({ _id }) => _id.toString());
+    let calls = 0;
+    const compare = buildCatalogAssistant(new ChatGroq({
+      apiKey: "test-only",
+      model: "openai/gpt-oss-20b",
+      maxRetries: 0,
+      fetch: async (_url, init) => {
+        const call = calls++;
+        const input = JSON.parse(init.body);
+        expect(input.tools.map(({ function: tool }: { function: { name: string } }) => tool.name))
+          .toEqual(["buscar_productos", "consultar_o_comparar_productos"]);
+        if (call > 0) {
+          const result = JSON.parse(input.messages.at(-1).content);
+          expect(result.map(({ id }: { id: string }) => id)).toEqual(ids);
+        }
+        const selected = call === 0
+          ? { name: "buscar_productos", arguments: JSON.stringify({ category: "teclados", inStock: true }) }
+          : { name: "consultar_o_comparar_productos", arguments: JSON.stringify({ ids }) };
+        return Response.json({
+          id: "test-completion",
+          model: "openai/gpt-oss-20b",
+          choices: [{
+            index: 0,
+            finish_reason: call < 2 ? "tool_calls" : "stop",
+            message: call < 2 ? {
+              role: "assistant", content: null,
+              tool_calls: [{ id: `call_${call}`, type: "function", function: selected }],
+            } : { role: "assistant", content: "El Teclado recomendado cuesta menos." },
+          }],
+        });
+      },
+    }));
+    try {
+      const assistantApp = createApp(authBundle.auth, origin, storage, compare);
+      const route = "/api/assistant/chat";
+      const input = { message: "Compará los dos teclados más baratos con stock." };
+      await request(assistantApp).post(route).send(input).expect(401);
+      await request(assistantApp).post(route).set("Cookie", userCookie).send({ message: "" }).expect(400);
+      const answer = await request(assistantApp).post(route).set("Cookie", userCookie).send(input).expect(200);
+      expect(answer.body.message).toContain("cuesta menos");
+      expect(answer.body.products.map(({ id }: { id: string }) => id)).toEqual(ids);
+      expect(answer.body.products[0]).not.toHaveProperty("description");
+      expect(calls).toBe(3);
+    } finally {
+      await Product.deleteMany({ _id: { $in: fixtures.map(({ _id }) => _id) } });
+    }
+  });
+
   it("sube imágenes, conserva su URL al editar y limpia reemplazos y bajas físicas", async () => {
     const { imageUrl: emptyUrl, ...fields } = product;
     expect(emptyUrl).toBe("");
