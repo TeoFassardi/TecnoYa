@@ -1,14 +1,17 @@
-import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import {
   BrowserRouter,
   Link,
+  NavLink,
   Navigate,
   Outlet,
   Route,
   Routes,
   useNavigate,
+  useLocation,
+  useNavigationType,
   useParams,
   useSearchParams,
 } from "react-router";
@@ -69,10 +72,65 @@ function Notice({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+function Loading({ label, layout }: {
+  label: string;
+  layout?: "catalog" | "detail" | "list";
+}) {
+  return (
+    <div className="loading-state" role="status">
+      <p><span className="loading-dot" aria-hidden="true" />{label}</p>
+      {layout === "catalog" && (
+        <div className="product-grid" aria-hidden="true">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div className="loading-card" key={index}>
+              <div className="product-visual loading-shape" />
+              <div className="product-info">
+                <div className="loading-line loading-shape" />
+                <div className="loading-line loading-shape loading-short" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {layout === "detail" && (
+        <div className="detail" aria-hidden="true">
+          <div className="product-visual loading-shape" />
+          <div className="loading-copy">
+            <div className="loading-line loading-shape" />
+            <div className="loading-line loading-shape loading-short" />
+            <div className="loading-line loading-shape" />
+          </div>
+        </div>
+      )}
+      {layout === "list" && (
+        <div className="loading-list" aria-hidden="true">
+          {Array.from({ length: 3 }, (_, index) => (
+            <div className="loading-row" key={index}>
+              <div className="loading-thumbnail loading-shape" />
+              <div className="loading-line loading-shape" />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Layout() {
   const { data: session } = authClient.useSession();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const navigation = useNavigationType();
+  const content = useRef<HTMLElement>(null);
+  const previousPath = useRef(pathname);
   const [error, setError] = useState("");
+  useLayoutEffect(() => {
+    if (previousPath.current === pathname) return;
+    previousPath.current = pathname;
+    content.current?.focus({ preventScroll: true });
+    if (navigation !== "POP") window.scrollTo({ top: 0, behavior: "instant" });
+  }, [pathname, navigation]);
   async function logout() {
     const result = await authClient.signOut();
     if (result.error) {
@@ -93,12 +151,12 @@ function Layout() {
           <span className="logo-dot" />
         </Link>
         <nav aria-label="Principal">
-          <Link to="/">Catálogo</Link>
-          {session && <Link to="/assistant">Asistente</Link>}
+          <NavLink to="/" end>Catálogo</NavLink>
+          {session && <NavLink to="/assistant">Asistente</NavLink>}
           {session?.user.role === "admin" && (
             <>
-              <Link to="/admin/products">Administración</Link>
-              <Link to="/admin/users">Usuarios</Link>
+              <NavLink to="/admin/products">Administración</NavLink>
+              <NavLink to="/admin/users">Usuarios</NavLink>
             </>
           )}
           {session ? (
@@ -116,7 +174,7 @@ function Layout() {
         </nav>
       </header>
       {error && <Notice>{error}</Notice>}
-      <main id="main">
+      <main id="main" className="page-enter" key={pathname} ref={content} tabIndex={-1}>
         <Outlet />
       </main>
       <footer>
@@ -208,7 +266,7 @@ function Catalog() {
           ))}
         </div>
         {isFetching && !data ? (
-          <Notice>Cargando productos…</Notice>
+          <Loading label="Cargando productos…" layout="catalog" />
         ) : isError ? (
           <Notice>
             No pudimos cargar el catálogo. El servidor puede estar iniciando.{" "}
@@ -221,7 +279,7 @@ function Catalog() {
               : "Pronto vas a encontrar nuevos productos acá."}
           </Notice>
         ) : (
-          <div className="product-grid">
+          <div className="product-grid catalog-results" key={`${category ?? "todos"}-${data.page}`}>
             {data.items.map((p) => (
               <Link
                 className="product-card"
@@ -253,7 +311,7 @@ function Detail() {
   const { id = "" } = useParams();
   const { data, isLoading, isError } = api.useProductQuery({ id });
   const { data: session } = authClient.useSession();
-  if (isLoading) return <Notice>Cargando producto…</Notice>;
+  if (isLoading) return <Loading label="Cargando producto…" layout="detail" />;
   if (isError || !data)
     return (
       <Notice>
@@ -417,7 +475,7 @@ function AuthForm({ register = false }: { register?: boolean }) {
 }
 function Guard({ admin = true }: { admin?: boolean }) {
   const { data, isPending } = authClient.useSession();
-  if (isPending) return <Notice>Comprobando sesión…</Notice>;
+  if (isPending) return <Loading label="Comprobando sesión…" />;
   if (!data) return <Navigate to="/login" replace />;
   if (admin && data.user.role !== "admin")
     return (
@@ -559,7 +617,7 @@ function Admin() {
       </div>
       {message && <Notice>{message}</Notice>}
       {isFetching && !data ? (
-        <Notice>Cargando productos…</Notice>
+        <Loading label="Cargando productos…" layout="list" />
       ) : isError ? (
         <Notice>
           No pudimos cargar los productos.{" "}
@@ -736,7 +794,7 @@ function Editor() {
         price: data.priceCents / 100,
       });
   }, [data, reset]);
-  if (isLoading) return <Notice>Cargando producto…</Notice>;
+  if (isLoading) return <Loading label="Cargando producto…" layout="list" />;
   if (isError)
     return (
       <Notice>
@@ -914,7 +972,7 @@ function AdminUsers() {
       <h1>Usuarios y sesiones</h1>
       {message && <Notice>{message}</Notice>}
       {isFetching && !users ? (
-        <Notice>Cargando usuarios…</Notice>
+        <Loading label="Cargando usuarios…" layout="list" />
       ) : error ? (
         <Notice>{errorMessage(error)} <button onClick={() => void refetch()}>Reintentar</button></Notice>
       ) : users?.items.length ? (
@@ -969,7 +1027,7 @@ function AdminUsers() {
           <h2 id="active-sessions">Sesiones activas</h2>
           <p>{selected.email}</p>
           {sessions.isFetching && !sessions.currentData ? (
-            <Notice>Cargando sesiones…</Notice>
+            <Loading label="Cargando sesiones…" layout="list" />
           ) : sessions.error ? (
             <Notice>{errorMessage(sessions.error)} <button onClick={() => void sessions.refetch()}>Reintentar</button></Notice>
           ) : sessions.currentData?.items.length ? (
@@ -1017,7 +1075,7 @@ function App() {
         <Route path="register" element={<AuthForm register />} />
         <Route element={<Guard admin={false} />}>
           <Route path="assistant" element={
-            <Suspense fallback={<Notice>Cargando asistente…</Notice>}>
+            <Suspense fallback={<Loading label="Cargando asistente…" />}>
               <Assistant />
             </Suspense>
           } />
