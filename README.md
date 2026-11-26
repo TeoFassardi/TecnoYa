@@ -1,22 +1,40 @@
 # TecnoYa
 
-Catálogo de periféricos con vista pública, autenticación persistente y administración de productos. Precios en pesos argentinos; no procesa compras ni pagos.
+Catálogo público de teclados, mouse, auriculares y monitores con precios en pesos argentinos. Los visitantes pueden consultar productos y su disponibilidad. Los administradores pueden gestionar el catálogo y los usuarios. El catálogo es informativo.
 
-Trabajo final de Metodologías y Desarrollos Web, UAI. Integrante: Teo Fassardi. Modelo a cargo: **Product**. Modalidad individual con un modelo, según autorización indicada por el integrante.
+Trabajo final de Metodologías y Desarrollos Web, UAI, en modalidad individual.
+
+| Integrante | Modelo a cargo |
+| --- | --- |
+| Teo Fassardi | `Product` |
+
+**Producción:** [TecnoYa](https://tecnoya.onrender.com) · [Swagger 2.0](https://tecnoya.onrender.com/api/docs)
+
+## Funcionalidades
+
+- **Catálogo y CRUD de productos.** El público ve los productos activos. Un administrador puede crear, editar, archivar, restaurar y eliminar definitivamente productos archivados.
+- **Registro y sesiones.** El acceso con correo y contraseña persiste usuarios y sesiones en MongoDB. Las cuentas nuevas reciben el rol `user`.
+- **Paginación.** El catálogo público y el listado de administración consultan páginas a la API.
+- **Google OAuth.** El ingreso con Google está integrado en la pantalla de inicio de sesión.
+- **Usuarios y sesiones.** En `/admin/users`, un administrador puede cambiar roles de otras cuentas y consultar o revocar sus sesiones activas.
+- **Swagger 2.0.** La API se puede explorar y probar desde `/api/docs`.
+- **Imágenes externas.** Supabase Storage guarda los archivos y MongoDB guarda sus URL.
+- **Asistente de catálogo.** En `/assistant`, LangChain y Groq consultan los productos activos mediante herramientas de búsqueda y comparación.
 
 ## Arquitectura
 
-Monorepo TypeScript estricto. React + Vite, React Router, React Hook Form y Zod en el frontend; Redux Toolkit y RTK Query para estado global y consultas. Express, Mongoose y MongoDB Atlas para productos. Better Auth usa MongoDB para usuarios, cuentas y sesiones. En producción Express sirve también el frontend bajo el mismo origen.
+Monorepo npm con TypeScript estricto. El frontend usa React, Vite, React Router, React Hook Form, Zod y Redux Toolkit con RTK Query. El backend expone una API REST con Express y Mongoose. MongoDB Atlas persiste los productos y los datos de Better Auth. Render sirve el frontend compilado y la API bajo el mismo origen. Supabase Storage aloja las imágenes y LangChain integra Groq para el asistente.
 
 ## Requisitos e instalación
 
-- Node.js 22.19 o superior, npm y una base MongoDB (Atlas o un replica set local; la autenticación utiliza transacciones).
-- Desde la raíz: `npm ci`.
-- Copiar `backend/.env.example` a `backend/.env` y completar sus valores.
-- Generar un secreto con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` y copiarlo únicamente al archivo de entorno.
-- Ejecutar `npm run dev`. Abrir **http://localhost:5173**; el backend escucha en el puerto 3000.
+Se requiere Node.js 22.19 o superior, npm y MongoDB Atlas o un conjunto de réplicas local que admita transacciones.
 
-Usar localhost de forma consistente con `BETTER_AUTH_URL` para las cookies y la comprobación de origen.
+1. Ejecutar `npm ci` desde la raíz del repositorio.
+2. Copiar `backend/.env.example` a `backend/.env`. Completar `MONGODB_URI` y generar `BETTER_AUTH_SECRET` con `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+3. Ejecutar `npm run seed` para cargar los productos de demostración.
+4. Ejecutar `npm run dev` y abrir **http://localhost:5173**. En desarrollo, Vite reenvía las solicitudes de la API al backend, que escucha en el puerto 3000.
+
+Usar `http://localhost:5173` también en `BETTER_AUTH_URL`. Google, Storage y Groq se habilitan con las variables indicadas a continuación. El catálogo y la autenticación por correo funcionan con la configuración básica.
 
 ## Variables del backend
 
@@ -56,7 +74,7 @@ El alta y la edición aceptan `imageBase64` para la carga. Omitir el campo conse
 
 ## Datos y administrador
 
-1. Ejecutar `npm run seed`: agrega 16 productos de demostración sin sobrescribir los existentes. Los precios son ilustrativos.
+1. Ejecutar `npm run seed` si todavía no se cargaron los datos. El comando agrega 16 productos de demostración y conserva los existentes.
 2. Registrarse desde la interfaz. Toda cuenta nueva recibe el rol `user`.
 3. En una terminal con acceso al entorno del backend: `npm run admin -- correo@ejemplo.com` para promover esa cuenta existente.
 4. Acceder a `/admin/products`. La autorización se comprueba en el servidor, no solo en la interfaz.
@@ -85,9 +103,9 @@ La documentación interactiva está en `/api/docs` y la especificación **Swagge
 
 Autenticación Better Auth bajo `/api/auth`: registro `/sign-up/email`, login `/sign-in/email`, logout `/sign-out` y consulta `/get-session`. Contraseña mínima de 8 caracteres.
 
-Los listados público y administrativo aceptan `?page=2&limit=12`. La página inicial es 1 y el límite predeterminado es 12, con un máximo de 50. La respuesta incluye `items`, `page`, `limit`, `total` y `totalPages`. Si la página solicitada supera la última disponible, se devuelve la última. El catálogo público admite `category` para paginar dentro de una categoría.
+Los listados de productos aceptan `page` y `limit`. La API usa la página 1 y un límite de 12 por defecto, con un máximo de 50. El catálogo solicita 8 productos por página y el panel usa 12. La respuesta incluye `items`, `page`, `limit`, `total` y `totalPages`. Si la página solicitada supera la última disponible, se devuelve la última. El listado público admite el filtro `category`.
 
-Producto: `name`, `description`, `brand`, `category`, `priceCents`, `stock`, `imageUrl`, `archivedAt`, `createdAt`, `updatedAt`. Categorías: `teclados`, `mouse`, `auriculares`, `monitores`. `priceCents` es un entero positivo en centavos ARS; stock es entero no negativo. La URL HTTPS de imagen es opcional en esta etapa.
+`Product` incluye `name`, `description`, `brand`, `category`, `priceCents`, `stock`, `imageUrl`, `archivedAt`, `createdAt` y `updatedAt`. Las categorías son `teclados`, `mouse`, `auriculares` y `monitores`. El precio se guarda en centavos de ARS y el stock es un entero no negativo. La imagen es opcional.
 
 Los errores de la API de productos contienen `code`, `message` y opcionalmente `fields`. Better Auth conserva su propio formato de errores. Archivar oculta públicamente; restaurar vuelve a publicar; eliminar definitivamente borra de MongoDB. Las dos bajas requieren confirmación en la interfaz.
 
