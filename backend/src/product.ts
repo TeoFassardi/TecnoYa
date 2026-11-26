@@ -18,7 +18,7 @@ export const productInput = z.strictObject({
       z.url().refine((v) => v.startsWith("https://"), "Usá una URL HTTPS"),
       z.literal(""),
     ])
-    .default(""),
+    .optional(),
 });
 const schema = new mongoose.Schema(
   {

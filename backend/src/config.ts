@@ -6,6 +6,9 @@ export const config = z
     BETTER_AUTH_URL: z.url(),
     GOOGLE_CLIENT_ID: z.string().trim().optional(),
     GOOGLE_CLIENT_SECRET: z.string().trim().optional(),
+    SUPABASE_URL: z.union([z.literal(""), z.url({ protocol: /^https$/ })]).optional(),
+    SUPABASE_SECRET_KEY: z.string().trim().optional(),
+    SUPABASE_STORAGE_BUCKET: z.string().trim().min(1).default("product-images"),
     PORT: z.coerce.number().int().positive().default(3000),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -14,5 +17,9 @@ export const config = z
   .refine(
     (env) => Boolean(env.GOOGLE_CLIENT_ID) === Boolean(env.GOOGLE_CLIENT_SECRET),
     { message: "Configurá GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET juntos" },
+  )
+  .refine(
+    (env) => Boolean(env.SUPABASE_URL) === Boolean(env.SUPABASE_SECRET_KEY),
+    { message: "Configurá SUPABASE_URL y SUPABASE_SECRET_KEY juntos" },
   )
   .parse(process.env);

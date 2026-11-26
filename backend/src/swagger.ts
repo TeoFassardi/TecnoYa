@@ -37,6 +37,11 @@ const restricted = {
 };
 const missing = { 404: error("Recurso inexistente") };
 const noContent = { 204: { description: "Operación completada" } };
+const uploadErrors = {
+  413: error("La solicitud supera el límite de tamaño"),
+  502: error("Storage no pudo guardar la imagen"),
+  503: error("Storage aún no está configurado"),
+};
 const id = { name: "id", in: "path", required: true, ...text };
 const sessionId = { ...id, name: "sessionId" };
 const paging = [
@@ -83,11 +88,16 @@ const paths: Paths = {
     get: productOperation("Listar productos activos", { 200: json(ref("ProductPage")), ...invalid }, [
       ...paging, { name: "category", in: "query", ...text, enum: [...categories] },
     ]),
-    post: productOperation("Crear un producto", { 201: json(ref("Product"), "Producto creado"), ...invalid }, [payload("ProductInput")], true),
+    post: productOperation("Crear un producto", {
+      201: json(ref("Product"), "Producto creado"), ...invalid, ...uploadErrors,
+    }, [payload("ProductInput")], true),
   },
   "/products/{id}": {
     get: productOperation("Consultar un producto activo", { 200: json(ref("Product")), ...invalid, ...missing }, [id]),
-    patch: productOperation("Editar un producto", { 200: json(ref("Product")), ...invalid, ...missing }, [id, payload("ProductPatch")], true),
+    patch: productOperation("Editar un producto", {
+      200: json(ref("Product")), ...invalid, ...missing, ...uploadErrors,
+      409: error("La imagen se modificó en otra solicitud"),
+    }, [id, payload("ProductPatch")], true),
     delete: productOperation("Archivar un producto", { ...noContent, ...invalid, ...missing }, [id], true),
   },
   "/products/{id}/restore": {
@@ -133,11 +143,19 @@ const productProperties = {
   ...productSchema.properties,
   imageUrl: { ...text, description: "URL HTTPS, o cadena vacía" },
 };
+const productWriteProperties = {
+  ...productProperties,
+  imageBase64: {
+    type: "string",
+    format: "byte",
+    description: "Archivo JPEG, PNG o WebP de hasta 2 MB sin prefijo de Data URL. Enviá este campo o imageUrl.",
+  },
+};
 const definitions = {
   Error: object({ code: text, message: text, fields: { type: "object" } }),
   Health: object({ status: { ...text, enum: ["ok", "unavailable"] } }),
-  ProductInput: { ...object(productProperties), required: productSchema.required },
-  ProductPatch: { ...object(productProperties), minProperties: 1 },
+  ProductInput: { ...object(productWriteProperties), required: productSchema.required },
+  ProductPatch: { ...object(productWriteProperties), minProperties: 1 },
   Product: object({ ...productProperties, _id: text, archivedAt: { ...date, "x-nullable": true }, createdAt: date, updatedAt: date }),
   ProductPage: object({ items: list("Product"), page: integer, limit: integer, total: integer, totalPages: integer }),
   User: object({ id: text, name: text, email: { ...text, format: "email" }, role }),

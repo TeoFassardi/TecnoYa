@@ -27,6 +27,9 @@ Usar localhost de forma consistente con `BETTER_AUTH_URL` para las cookies y la 
 | `BETTER_AUTH_URL` | Origen público completo: `http://localhost:5173` en desarrollo; URL HTTPS real en producción. |
 | `GOOGLE_CLIENT_ID` | ID del cliente OAuth web de Google. |
 | `GOOGLE_CLIENT_SECRET` | Secreto del cliente OAuth, configurado junto con el ID en el backend. |
+| `SUPABASE_URL` | URL HTTPS del proyecto Supabase para Storage. |
+| `SUPABASE_SECRET_KEY` | Clave secreta del proyecto. Se configura solo en el backend. |
+| `SUPABASE_STORAGE_BUCKET` | Nombre del bucket público, `product-images` por defecto. |
 | `PORT` | Puerto del backend, 3000 por defecto; Render lo asigna. |
 | `NODE_ENV` | `development`, `test` o `production`. |
 
@@ -40,6 +43,14 @@ El frontend utiliza rutas relativas `/api`, sin secretos ni variables obligatori
 4. Desde `/login`, elegí **Continuar con Google**. Probá con una cuenta nueva en TecnoYa y verificá el regreso al catálogo, la sesión activa y el acceso denegado a `/admin/products`.
 
 Las cuentas nuevas reciben el rol `user`. Si el correo ya está registrado con contraseña, usá ese método de ingreso para esa cuenta.
+
+## Imágenes de productos
+
+1. Creá un proyecto gratuito en Supabase. En **Storage**, creá el bucket público `product-images`. Limitá las cargas a 2 MB y a `image/jpeg`, `image/png` y `image/webp`. El backend escribe con la clave secreta, así que el catálogo solo necesita acceso público de lectura.
+2. Copiá la URL del proyecto y la clave secreta a `SUPABASE_URL` y `SUPABASE_SECRET_KEY` en Render. Para probar localmente, cargalas en `backend/.env`.
+3. Desplegá `main`. Como admin, seleccioná un archivo al crear o editar un producto y comprobá que se vea en el catálogo. MongoDB guarda la URL pública y Supabase Storage guarda el archivo.
+
+El alta y la edición aceptan `imageBase64` para la carga. Omitir el campo conserva la imagen actual al editar, y enviar `imageUrl: ""` la quita. El archivo se conserva al archivar. El reemplazo, la eliminación de la imagen y el borrado definitivo limpian la imagen anterior de Storage cuando deja de estar referenciada.
 
 ## Datos y administrador
 
@@ -97,6 +108,6 @@ El build usa `npm ci --include=dev && npm run build` para instalar las herramien
 
 ## Etapas pendientes
 
-Quedan pendientes la carga de imágenes en Supabase Storage (MongoDB guarda solo URL) y el agente LangChain/Groq con herramientas de consulta y comparación.
+Queda pendiente el agente LangChain/Groq con herramientas de consulta y comparación.
 
 Todo cambio se trabaja en una rama y se incorpora mediante PR con descripción y pasos de verificación. No subir `.env`, credenciales ni archivos locales de Engram.

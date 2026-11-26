@@ -88,12 +88,19 @@ test('registro, rol user y protección por URL',async({page})=>{
   await page.goto('/admin/products');await expect(page).toHaveURL('/login');
 });
 test('administración, cancelación de modal y efecto público de las dos bajas',async({page})=>{
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=', 'base64');
+  await page.route('https://storage.example.com/fixture.png', (route) =>
+    route.fulfill({ contentType: 'image/png', body: png }),
+  );
   await page.goto('/login');
   await page.getByLabel('Correo electrónico').fill('admin@example.com');await page.getByLabel('Contraseña').fill('BrowserTest123!');
   await page.getByRole('button',{name:'Ingresar',exact:true}).click();await expect(page).toHaveURL('/');
   await page.getByRole('link',{name:'Administración'}).click();await page.getByRole('link',{name:'Nuevo producto'}).click();
   await page.getByLabel('Nombre',{exact:true}).fill('Teclado prueba navegador');await page.getByLabel('Marca').fill('Prueba');
   await page.getByLabel('Precio en ARS').fill('12345.67');await page.getByLabel('Stock').fill('4');await page.getByLabel('Descripción').fill('Producto de prueba del recorrido completo.');
+  await page.getByLabel('Imagen del producto (opcional)').setInputFiles({
+    name: 'teclado.png', mimeType: 'image/png', buffer: png,
+  });
   await page.getByRole('button',{name:'Guardar producto'}).click();await expect(page).toHaveURL('/admin/products');
   await page.getByRole('button',{name:'Archivar Teclado prueba navegador',exact:true}).click();
   await page.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(page.getByRole('cell',{name:'Teclado prueba navegador Prueba'})).toBeVisible();
@@ -102,6 +109,9 @@ test('administración, cancelación de modal y efecto público de las dos bajas'
   await expect(page.getByText('Teclado prueba navegador',{exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Restaurar Teclado prueba navegador',exact:true}).click();
   await page.getByRole('link',{name:'Catálogo',exact:true}).click();await expect(page.getByRole('heading',{name:'Teclado prueba navegador'})).toBeVisible();
+  const image = page.getByRole('img', { name: 'Teclado prueba navegador' });
+  await expect(image).toHaveAttribute('src', 'https://storage.example.com/fixture.png');
+  await expect.poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);
   await page.getByRole('link',{name:'Administración'}).click();await page.getByRole('button',{name:'Archivar Teclado prueba navegador',exact:true}).click();await page.getByRole('button',{name:'Archivar',exact:true}).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();await page.getByRole('button',{name:'Archivados',exact:true}).click();await page.getByRole('button',{name:'Eliminar definitivamente Teclado prueba navegador',exact:true}).click();
   await page.getByRole('button',{name:'Eliminar definitivamente',exact:true}).click();await expect(page.getByRole('dialog')).not.toBeVisible();await expect(page.getByText('Teclado prueba navegador',{exact:true})).not.toBeVisible();
