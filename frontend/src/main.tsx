@@ -145,7 +145,8 @@ function Pagination({ page, totalPages, onChange }: {
 function Catalog() {
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState<string>();
-  const { currentData: data, isFetching, isError, refetch } = api.useProductsQuery({ page, category });
+  const { currentData: data, isFetching, isError, refetch } =
+    api.useProductsQuery({ page, category, limit: 8 });
   function selectCategory(value?: string) {
     setCategory(value);
     setPage(1);
@@ -203,38 +204,34 @@ function Catalog() {
             <button onClick={() => void refetch()}>Reintentar</button>
           </Notice>
         ) : !data?.items.length ? (
-          <Notice>Pronto vas a encontrar nuevos productos acá.</Notice>
+          <Notice>
+            {category
+              ? "Por ahora no hay productos en esta categoría."
+              : "Pronto vas a encontrar nuevos productos acá."}
+          </Notice>
         ) : (
-          categories.map(({ id, name }) => {
-            const products = data.items.filter((p) => p.category === id);
-            return products.length ? (
-              <section className="category-section" id={id} key={id}>
-                <h3>{name}</h3>
-                <div className="product-grid">
-                  {products.map((p) => (
-                    <Link
-                      className="product-card"
-                      to={`/products/${p._id}`}
-                      key={p._id}
-                    >
-                      <ProductVisual product={p} />
-                      <div className="product-info">
-                        <span className="brand">{p.brand}</span>
-                        <h4>{p.name}</h4>
-                        <div className="product-bottom">
-                          <strong>{money(p.priceCents)}</strong>
-                          <ArrowUpRight size={20} />
-                        </div>
-                        <span className={p.stock ? "stock" : "muted"}>
-                          {p.stock ? "Disponible" : "Sin stock"}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
+          <div className="product-grid">
+            {data.items.map((p) => (
+              <Link
+                className="product-card"
+                to={`/products/${p._id}`}
+                key={p._id}
+              >
+                <ProductVisual product={p} />
+                <div className="product-info">
+                  <span className="brand">{p.brand}</span>
+                  <h3>{p.name}</h3>
+                  <div className="product-bottom">
+                    <strong>{money(p.priceCents)}</strong>
+                    <ArrowUpRight size={20} />
+                  </div>
+                  <span className={p.stock ? "stock" : "muted"}>
+                    {p.stock ? "Disponible" : "Sin stock"}
+                  </span>
                 </div>
-              </section>
-            ) : null;
-          })
+              </Link>
+            ))}
+          </div>
         )}
         {data && <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />}
       </section>

@@ -9,6 +9,7 @@ test('catálogo cambia de página y reinicia al filtrar por categoría', async (
 
   await page.goto('/');
   await expect(page.getByText('Página 1 de 2')).toBeVisible();
+  await expect(page.locator('.product-grid')).toHaveCount(1);
   const products = page.locator('.product-card');
   await expect(products).toHaveCount(2);
   const firstPage = await products.first().getAttribute('href');
