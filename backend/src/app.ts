@@ -16,6 +16,7 @@ import type { Request } from "express";
 import { categories, Product, productInput } from "./product.js";
 import { mountSwagger } from "./swagger.js";
 import { imageUpload, type ImageStorage } from "./image-storage.js";
+import { assistantInput, type CatalogAssistant } from "./catalog-assistant.js";
 
 const productWrite = productInput.extend({ imageBase64: imageUpload.optional() });
 const productPatch = productWrite.partial().refine(
@@ -53,7 +54,12 @@ export class HttpError extends Error {
     super(message);
   }
 }
-export function createApp(auth: Auth, origin: string, storage?: ImageStorage) {
+export function createApp(
+  auth: Auth,
+  origin: string,
+  storage?: ImageStorage,
+  assistant?: CatalogAssistant,
+) {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
@@ -83,11 +89,15 @@ export function createApp(auth: Auth, origin: string, storage?: ImageStorage) {
       throw new HttpError(403, "Origen no permitido");
     next();
   });
-  async function adminSession(req: Request) {
+  async function requireSession(req: Request) {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
     if (!session) throw new HttpError(401, "Iniciá sesión para continuar");
+    return session;
+  }
+  async function adminSession(req: Request) {
+    const session = await requireSession(req);
     if (session.user.role !== "admin")
       throw new HttpError(403, "Necesitás permisos de administrador");
     return session;
@@ -168,6 +178,35 @@ export function createApp(auth: Auth, origin: string, storage?: ImageStorage) {
     }
   });
   app.use(express.json({ limit: "64kb" }));
+
+  app.post(
+    "/api/assistant/chat",
+    async (req, res, next) => {
+      res.locals.assistantUserId = (await requireSession(req)).user.id;
+      next();
+    },
+    rateLimit({
+      windowMs: 60_000,
+      limit: 6,
+      keyGenerator: (_req, res) => String(res.locals.assistantUserId),
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      message: { code: "HTTP_429", message: "Esperá un minuto antes de volver a consultar al asistente." },
+    }),
+    async (req, res) => {
+      if (!assistant) throw new HttpError(503, "El asistente todavía no está configurado.");
+      const input = assistantInput.parse(req.body);
+      try {
+        res.json(await assistant(input));
+      } catch (error) {
+        if (error instanceof Error && "status" in error && error.status === 429)
+          throw new HttpError(429, "El asistente alcanzó su límite de uso. Probá más tarde.");
+        if (error instanceof Error && ["AbortError", "TimeoutError", "APIConnectionTimeoutError"].includes(error.name))
+          throw new HttpError(504, "El asistente tardó demasiado en responder. Probá de nuevo.");
+        throw new HttpError(502, "El asistente no pudo responder. Probá de nuevo en un momento.");
+      }
+    },
+  );
 
   app.get("/api/health", (_req, res) =>
     res

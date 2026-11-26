@@ -79,6 +79,20 @@ function adminOperation(summary: string, responses: Operation["responses"], para
 }
 
 const paths: Paths = {
+  "/assistant/chat": {
+    post: {
+      ...operation("Asistente", "Consultar el catálogo con el asistente", {
+        200: json(ref("AssistantAnswer")),
+        ...invalid,
+        401: error("Se requiere una sesión"),
+        429: error("Límite de consultas alcanzado"),
+        502: error("El proveedor no pudo responder"),
+        503: error("El asistente aún no está configurado"),
+        504: error("Tiempo de respuesta agotado"),
+      }, [payload("AssistantInput")]),
+      description: "Requiere iniciar sesión en TecnoYa. El historial opcional corresponde a esta conversación.",
+    },
+  },
   "/health": {
     get: operation("Servicio", "Comprobar conexión a MongoDB", {
       200: json(ref("Health")), 503: json(ref("Health"), "MongoDB no disponible"),
@@ -152,6 +166,22 @@ const productWriteProperties = {
   },
 };
 const definitions = {
+  AssistantInput: {
+    ...object({
+      message: { ...text, maxLength: 500 },
+      history: { type: "array", maxItems: 8, items: ref("AssistantTurn") },
+    }),
+    required: ["message"],
+  },
+  AssistantTurn: object({
+    role: { ...text, enum: ["user", "assistant"] },
+    text: { ...text, maxLength: 1500 },
+  }),
+  AssistantAnswer: object({ message: text, products: list("AssistantProduct") }),
+  AssistantProduct: object({
+    id: text, name: text, brand: text, category: text,
+    priceCents: integer, stock: integer, imageUrl: text,
+  }),
   Error: object({ code: text, message: text, fields: { type: "object" } }),
   Health: object({ status: { ...text, enum: ["ok", "unavailable"] } }),
   ProductInput: { ...object(productWriteProperties), required: productSchema.required },

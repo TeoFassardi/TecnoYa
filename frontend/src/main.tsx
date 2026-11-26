@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
 import {
@@ -37,6 +37,7 @@ import {
   type Product,
 } from "./data";
 import "./styles.css";
+const Assistant = lazy(() => import("./assistant"));
 const categories = [
   { id: "teclados", name: "Teclados", Icon: Keyboard },
   { id: "mouse", name: "Mouse", Icon: Mouse },
@@ -93,6 +94,7 @@ function Layout() {
         </Link>
         <nav aria-label="Principal">
           <Link to="/">Catálogo</Link>
+          {session && <Link to="/assistant">Asistente</Link>}
           {session?.user.role === "admin" && (
             <>
               <Link to="/admin/products">Administración</Link>
@@ -409,11 +411,11 @@ function AuthForm({ register = false }: { register?: boolean }) {
     </section>
   );
 }
-function Guard() {
+function Guard({ admin = true }: { admin?: boolean }) {
   const { data, isPending } = authClient.useSession();
   if (isPending) return <Notice>Comprobando sesión…</Notice>;
   if (!data) return <Navigate to="/login" replace />;
-  if (data.user.role !== "admin")
+  if (admin && data.user.role !== "admin")
     return (
       <Notice>
         No tenés permisos para acceder a la administración.{" "}
@@ -1004,6 +1006,13 @@ function App() {
         <Route path="products/:id" element={<Detail />} />
         <Route path="login" element={<AuthForm />} />
         <Route path="register" element={<AuthForm register />} />
+        <Route element={<Guard admin={false} />}>
+          <Route path="assistant" element={
+            <Suspense fallback={<Notice>Cargando asistente…</Notice>}>
+              <Assistant />
+            </Suspense>
+          } />
+        </Route>
         <Route element={<Guard />}>
           <Route path="admin/users" element={<AdminUsers />} />
           <Route path="admin/products" element={<Admin />} />

@@ -17,6 +17,15 @@ const server = createApp(auth, 'http://127.0.0.1:4173', {
   async upload() { return 'https://storage.example.com/fixture.png'; },
   owns(url) { return url === 'https://storage.example.com/fixture.png'; },
   async remove() {},
+}, async () => {
+  const product = await Product.findOne({ category: 'teclados', archivedAt: null }).orFail();
+  return {
+    message: "Encontré un teclado con stock en el catálogo.",
+    products: [{
+      id: product.id, name: product.name, brand: product.brand, category: product.category,
+      imageUrl: product.imageUrl, priceCents: product.priceCents, stock: product.stock,
+    }],
+  };
 }).listen(4173, '127.0.0.1');
 async function close(){server.close();await mongoose.disconnect();await client.close();await mongo.stop();process.exit(0);}
 process.on('SIGTERM',()=>void close());process.on('SIGINT',()=>void close());
