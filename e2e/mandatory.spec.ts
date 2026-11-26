@@ -1,5 +1,39 @@
 import { test,expect } from '@playwright/test';
 
+test('administrador cambia un rol y revoca una sesión desde el panel', async ({ browser, page }) => {
+  const userPage = await browser.newPage();
+  try {
+    await userPage.goto('/register');
+    await userPage.getByLabel('Nombre', { exact: true }).fill('Usuario de sesiones');
+    await userPage.getByLabel('Correo electrónico').fill('sessions@example.com');
+    await userPage.getByLabel('Contraseña').fill('BrowserUser123!');
+    await userPage.getByRole('button', { name: 'Crear cuenta' }).click();
+    await expect(userPage).toHaveURL('/');
+
+    await page.goto('/login');
+    await page.getByLabel('Correo electrónico').fill('admin@example.com');
+    await page.getByLabel('Contraseña').fill('BrowserTest123!');
+    await page.getByRole('button', { name: 'Ingresar', exact: true }).click();
+    await page.getByRole('link', { name: 'Usuarios', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Usuarios y sesiones' })).toBeVisible();
+
+    const user = page.getByRole('row', { name: /sessions@example.com/ });
+    page.once('dialog', (dialog) => dialog.accept());
+    await user.getByRole('button', { name: 'Hacer administrador' }).click();
+    await expect(user.getByRole('cell', { name: 'Administrador' })).toBeVisible();
+    await userPage.goto('/admin/users');
+    await expect(userPage.getByRole('heading', { name: 'Usuarios y sesiones' })).toBeVisible();
+
+    await user.getByRole('button', { name: 'Ver sesiones' }).click();
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'Revocar sesión' }).click();
+    await expect(page.getByText('Este usuario no tiene sesiones activas.')).toBeVisible();
+    await expect((await userPage.request.get('/api/admin/users')).status()).toBe(401);
+  } finally {
+    await userPage.context().close();
+  }
+});
+
 test('ingreso con Google informa un intento cancelado', async ({ page }) => {
   await page.goto('/login?google=1&error=access_denied');
   await expect(page.getByRole('alert')).toContainText('No se completó el ingreso con Google');

@@ -58,6 +58,10 @@ No existe una contraseña administrativa predeterminada. Las credenciales de ent
 | GET | `/api/products` y `/api/products/:id` | Público, solo productos activos |
 | GET | `/api/admin/products?status=active` o `archived` | Admin |
 | GET | `/api/admin/products/:id` | Admin |
+| GET | `/api/admin/users?page=1&limit=12` | Admin; listar usuarios y roles |
+| PATCH | `/api/admin/users/:id/role` | Admin; cambiar el rol de otro usuario |
+| GET | `/api/admin/users/:id/sessions` | Admin; listar sesiones activas |
+| DELETE | `/api/admin/users/:id/sessions/:sessionId` | Admin; revocar una sesión |
 | POST | `/api/products` | Admin; crear |
 | PATCH | `/api/products/:id` | Admin; modificar |
 | DELETE | `/api/products/:id` | Admin; archivar |
@@ -91,6 +95,6 @@ El build usa `npm ci --include=dev && npm run build` para instalar las herramien
 
 ## Etapas pendientes
 
-Quedan pendientes administración de usuarios y sesiones, Swagger **2.0**, carga de imágenes en Supabase Storage (MongoDB guarda solo URL) y el agente LangChain/Groq con herramientas de consulta y comparación.
+Quedan pendientes Swagger **2.0**, carga de imágenes en Supabase Storage (MongoDB guarda solo URL) y el agente LangChain/Groq con herramientas de consulta y comparación.
 
 Todo cambio se trabaja en una rama y se incorpora mediante PR con descripción y pasos de verificación. No subir `.env`, credenciales ni archivos locales de Engram.

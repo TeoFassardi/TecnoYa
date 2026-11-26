@@ -222,6 +222,57 @@ describe("Permisos y ciclo completo del catálogo", () => {
     }
   });
 
+  it("administra roles y revoca sesiones sin exponer tokens", async () => {
+    const endpoint = "/api/admin/users";
+    await request(app).get(endpoint).expect(401);
+    await request(app).get(endpoint).set("Cookie", userCookie).expect(403);
+    const { body } = await request(app).get(endpoint).set("Cookie", adminCookie).expect(200);
+    const adminId = body.items.find(({ role }: { role: string }) => role === "admin").id;
+    const userId = body.items.find(({ role }: { role: string }) => role === "user").id;
+    await request(app).patch(`${endpoint}/${adminId}/role`)
+      .set("Cookie", adminCookie).send({ role: "user" }).expect(400);
+    await request(app).post("/api/auth/admin/set-role")
+      .set("Cookie", adminCookie).send({ userId: adminId, role: "user" }).expect(404);
+    await request(app).patch(`${endpoint}/${userId}/role`)
+      .set("Cookie", userCookie).send({ role: "admin" }).expect(403);
+    await request(app).patch(`${endpoint}/${userId}/role`)
+      .set("Cookie", adminCookie).send({ role: "admin" }).expect(204);
+    await request(app).get(endpoint).set("Cookie", userCookie).expect(200);
+
+    const sessions = `${endpoint}/${userId}/sessions`;
+    const listed = await request(app).get(sessions).set("Cookie", adminCookie).expect(200);
+    expect(listed.body.items).toHaveLength(1);
+    const [session] = listed.body.items;
+    expect(session).not.toHaveProperty("token");
+    await request(app).delete(`${endpoint}/${adminId}/sessions/${session.id}`)
+      .set("Cookie", adminCookie).expect(404);
+    await request(app).delete(`${sessions}/${session.id}`)
+      .set("Cookie", adminCookie).expect(204);
+    await request(app).get(endpoint).set("Cookie", userCookie).expect(401);
+    await request(app).patch(`${endpoint}/${userId}/role`)
+      .set("Cookie", adminCookie).send({ role: "user" }).expect(204);
+  });
+
+  it("solo permite una de dos degradaciones simultáneas entre administradores", async () => {
+    const endpoint = "/api/admin/users";
+    const otherCookie = await register("other-admin@example.com");
+    const { body } = await request(app).get(endpoint).set("Cookie", adminCookie).expect(200);
+    const adminId = body.items.find(({ email }: { email: string }) => email === "admin@example.com").id;
+    const otherId = body.items.find(({ email }: { email: string }) => email === "other-admin@example.com").id;
+    await request(app).patch(`${endpoint}/${otherId}/role`)
+      .set("Cookie", adminCookie).send({ role: "admin" }).expect(204);
+    const results = await Promise.all([
+      request(app).patch(`${endpoint}/${otherId}/role`)
+        .set("Cookie", adminCookie).send({ role: "user" }),
+      request(app).patch(`${endpoint}/${adminId}/role`)
+        .set("Cookie", otherCookie).send({ role: "user" }),
+    ]);
+    expect(results.map(({ status }) => status).sort()).toEqual([204, 403]);
+    const admins = authBundle.client.db().collection("user");
+    expect(await admins.countDocuments({ role: "admin" })).toBe(1);
+    await admins.updateOne({ email: "admin@example.com" }, { $set: { role: "admin" } });
+  });
+
   it("cerrar sesión invalida el acceso administrativo", async () => {
     expect(
       (

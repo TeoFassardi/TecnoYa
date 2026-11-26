@@ -468,6 +468,12 @@ td small {
   color: var(--muted);
   margin-top: 5px;
 }
+.session-agent {
+  min-width: 12rem;
+  max-width: 24rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .actions {
   display: flex;
   align-items: center;
