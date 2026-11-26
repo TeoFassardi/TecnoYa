@@ -94,7 +94,10 @@ function Layout() {
         <nav aria-label="Principal">
           <Link to="/">Catálogo</Link>
           {session?.user.role === "admin" && (
-            <Link to="/admin/products">Administración</Link>
+            <>
+              <Link to="/admin/products">Administración</Link>
+              <Link to="/admin/users">Usuarios</Link>
+            </>
           )}
           {session ? (
             <>
@@ -124,14 +127,15 @@ function Layout() {
     </>
   );
 }
-function Pagination({ page, totalPages, onChange }: {
+function Pagination({ page, totalPages, onChange, label = "Paginación de productos" }: {
   page: number;
   totalPages: number;
   onChange: (page: number) => void;
+  label?: string;
 }) {
   if (totalPages <= 1) return null;
   return (
-    <nav className="pagination" aria-label="Paginación de productos">
+    <nav className="pagination" aria-label={label}>
       <button className="button subtle" disabled={page <= 1} onClick={() => onChange(page - 1)}>
         Anterior
       </button>
@@ -790,6 +794,146 @@ function Editor() {
     </section>
   );
 }
+function AdminUsers() {
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<{ id: string; email: string }>();
+  const [message, setMessage] = useState("");
+  const { data: session, refetch: refreshSession } = authClient.useSession();
+  const navigate = useNavigate();
+  const { currentData: users, isFetching, error, refetch } = api.useUsersQuery(page);
+  const sessions = api.useUserSessionsQuery(selected?.id ?? "", {
+    skip: !selected,
+    refetchOnMountOrArgChange: true,
+  });
+  const [changeRole, { isLoading: changingRole }] = api.useChangeRoleMutation();
+  const [revokeSession, { isLoading: revoking }] = api.useRevokeSessionMutation();
+
+  async function updateRole(id: string, email: string, role: "user" | "admin") {
+    if (!window.confirm(`¿Cambiar el rol de ${email} a ${role}?`)) return;
+    setMessage("");
+    try {
+      await changeRole({ id, role }).unwrap();
+      setMessage("Rol actualizado.");
+    } catch (error) {
+      setMessage(errorMessage(error));
+    }
+  }
+
+  async function revoke(id: string, sessionId: string) {
+    if (!window.confirm("¿Revocar esta sesión? La persona tendrá que volver a ingresar.")) return;
+    setMessage("");
+    try {
+      await revokeSession({ id, sessionId }).unwrap();
+      if (sessionId === session?.session.id) {
+        store.dispatch(api.util.resetApiState());
+        void refreshSession();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setMessage("Sesión revocada.");
+    } catch (error) {
+      setMessage(errorMessage(error));
+    }
+  }
+
+  return (
+    <section>
+      <h1>Usuarios y sesiones</h1>
+      {message && <Notice>{message}</Notice>}
+      {isFetching && !users ? (
+        <Notice>Cargando usuarios…</Notice>
+      ) : error ? (
+        <Notice>{errorMessage(error)} <button onClick={() => void refetch()}>Reintentar</button></Notice>
+      ) : users?.items.length ? (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr><th>Usuario</th><th>Rol</th><th>Acciones</th></tr>
+            </thead>
+            <tbody>
+              {users.items.map(({ id, name, email, role }) => (
+                <tr key={id}>
+                  <td><strong>{name}</strong><small>{email}</small></td>
+                  <td>{role === "admin" ? "Administrador" : "Usuario"}</td>
+                  <td>
+                    <div className="actions">
+                      <button
+                        className="button subtle"
+                        aria-pressed={selected?.id === id}
+                        onClick={() => setSelected({ id, email })}
+                      >
+                        Ver sesiones
+                      </button>
+                      {id !== session?.user.id && (
+                        <button
+                          className="button subtle"
+                          disabled={changingRole}
+                          onClick={() => void updateRole(id, email, role === "admin" ? "user" : "admin")}
+                        >
+                          {role === "admin" ? "Quitar rol admin" : "Hacer administrador"}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <Notice>No hay usuarios en esta página.</Notice>
+      )}
+      {users && (
+        <Pagination
+          page={users.page}
+          totalPages={users.totalPages}
+          label="Paginación de usuarios"
+          onChange={(next) => { setPage(next); setSelected(undefined); }}
+        />
+      )}
+      {selected && (
+        <section aria-labelledby="active-sessions">
+          <h2 id="active-sessions">Sesiones activas</h2>
+          <p>{selected.email}</p>
+          {sessions.isFetching && !sessions.currentData ? (
+            <Notice>Cargando sesiones…</Notice>
+          ) : sessions.error ? (
+            <Notice>{errorMessage(sessions.error)} <button onClick={() => void sessions.refetch()}>Reintentar</button></Notice>
+          ) : sessions.currentData?.items.length ? (
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr><th>Navegador</th><th>Inicio</th><th>Vencimiento</th><th>Acciones</th></tr>
+                </thead>
+                <tbody>
+                  {sessions.currentData.items.map(({ id, createdAt, expiresAt, userAgent }) => (
+                    <tr key={id}>
+                      <td className="session-agent">{userAgent || "Desconocido"}</td>
+                      <td>{new Date(createdAt).toLocaleString("es-AR")}</td>
+                      <td>{new Date(expiresAt).toLocaleString("es-AR")}</td>
+                      <td>
+                        <button
+                          className="button subtle"
+                          disabled={revoking}
+                          onClick={() => void revoke(selected.id, id)}
+                        >
+                          Revocar sesión
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Notice>Este usuario no tiene sesiones activas.</Notice>
+          )}
+        </section>
+      )}
+    </section>
+  );
+}
+
 function App() {
   return (
     <Routes>
@@ -799,6 +943,7 @@ function App() {
         <Route path="login" element={<AuthForm />} />
         <Route path="register" element={<AuthForm register />} />
         <Route element={<Guard />}>
+          <Route path="admin/users" element={<AdminUsers />} />
           <Route path="admin/products" element={<Admin />} />
           <Route path="admin/products/new" element={<Editor />} />
           <Route path="admin/products/:id/edit" element={<Editor />} />

@@ -6,11 +6,13 @@ import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { z } from "zod";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import type { Auth } from "./auth.js";
+import type { Request } from "express";
 import { categories, Product, productInput } from "./product.js";
 
 const pagination = z.object({
@@ -74,13 +76,17 @@ export function createApp(auth: Auth, origin: string) {
       throw new HttpError(403, "Origen no permitido");
     next();
   });
-  const requireAdmin: RequestHandler = async (req, _res, next) => {
+  async function adminSession(req: Request) {
     const session = await auth.api.getSession({
       headers: fromNodeHeaders(req.headers),
     });
     if (!session) throw new HttpError(401, "Iniciá sesión para continuar");
     if (session.user.role !== "admin")
       throw new HttpError(403, "Necesitás permisos de administrador");
+    return session;
+  }
+  const requireAdmin: RequestHandler = async (req, _res, next) => {
+    await adminSession(req);
     next();
   };
   const validId: RequestHandler = (req, _res, next) => {
@@ -111,6 +117,71 @@ export function createApp(auth: Auth, origin: string) {
     res.json(product);
   });
   app.use("/api/admin", requireAdmin);
+  app.get("/api/admin/users", async (req, res) => {
+    const { page, limit } = pagination.parse(req.query);
+    const offset = z.number().int().parse((page - 1) * limit);
+    const { users, total } = await auth.api.listUsers({
+      headers: fromNodeHeaders(req.headers),
+      query: { limit, offset, sortBy: "email", sortDirection: "asc" },
+    });
+    res.json({
+      items: users.map(({ id, name, email, role }) => ({ id, name, email, role })),
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    });
+  });
+  app.patch("/api/admin/users/:id/role", validId, async (req, res) => {
+    const { user } = await adminSession(req);
+    const { role } = z.strictObject({ role: z.enum(["user", "admin"]) }).parse(req.body);
+    const targetId = new ObjectId(z.string().parse(req.params.id));
+    const actorId = new ObjectId(user.id);
+    if (targetId.equals(actorId))
+      throw new HttpError(400, "Otro administrador debe cambiar tu rol");
+
+    const client = mongoose.connection.getClient();
+    const users = client.db(mongoose.connection.name).collection("user");
+    await client.withSession((session) => session.withTransaction(async () => {
+      // Writing the actor and target in one transaction prevents simultaneous
+      // demotions from removing the administrators authorizing each other.
+      const actor = await users.updateOne(
+        { _id: actorId, role: "admin" },
+        { $inc: { roleChangeVersion: 1 } },
+        { session },
+      );
+      if (!actor.matchedCount)
+        throw new HttpError(403, "Necesitás permisos de administrador");
+      const target = await users.updateOne(
+        { _id: targetId },
+        { $set: { role, updatedAt: new Date() } },
+        { session },
+      );
+      if (!target.matchedCount) throw new HttpError(404, "Usuario no encontrado");
+    }));
+    res.status(204).end();
+  });
+  async function activeSessions(req: Request, userId: string) {
+    const headers = fromNodeHeaders(req.headers);
+    const { sessions } = await auth.api.listUserSessions({ headers, body: { userId } });
+    return sessions.filter(({ expiresAt }) => expiresAt.getTime() > Date.now());
+  }
+  app.get("/api/admin/users/:id/sessions", validId, async (req, res) => {
+    const sessions = await activeSessions(req, z.string().parse(req.params.id));
+    res.json({
+      items: sessions.map(({ id, createdAt, expiresAt, userAgent }) => ({
+        id, createdAt, expiresAt, userAgent,
+      })),
+    });
+  });
+  app.delete("/api/admin/users/:id/sessions/:sessionId", validId, async (req, res) => {
+    const sessions = await activeSessions(req, z.string().parse(req.params.id));
+    const session = sessions.find(({ id }) => id === req.params.sessionId);
+    if (!session) throw new HttpError(404, "Sesión activa no encontrada");
+    await auth.api.revokeUserSession({
+      headers: fromNodeHeaders(req.headers),
+      body: { sessionToken: session.token },
+    });
+    res.status(204).end();
+  });
   app.get("/api/admin/products", async (req, res) => {
     const status = z
       .enum(["active", "archived"])

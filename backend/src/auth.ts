@@ -9,6 +9,7 @@ export function createAuth(
   google?: { clientId: string; clientSecret: string },
 ) {
   const client = new MongoClient(uri);
+  const adminPlugin = admin({ defaultRole: "user", adminRoles: ["admin"] });
   const auth = betterAuth({
     appName: "TecnoYa",
     secret,
@@ -18,7 +19,8 @@ export function createAuth(
     emailAndPassword: { enabled: true, minPasswordLength: 8 },
     socialProviders: google ? { google } : {},
     account: { accountLinking: { enabled: false } },
-    plugins: [admin({ defaultRole: "user", adminRoles: ["admin"] })],
+    plugins: [adminPlugin],
+    disabledPaths: Object.values(adminPlugin.endpoints).map(({ path }) => path),
     session: { cookieCache: { enabled: false } },
   });
   return { auth, client };

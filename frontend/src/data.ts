@@ -33,12 +33,48 @@ interface ProductPage {
   total: number;
   totalPages: number;
 }
+export type UserRole = "user" | "admin";
+export interface ManagedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+}
+interface ManagedSession {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  userAgent?: string | null;
+}
 
 export const api = createApi({
   reducerPath: "api",
   baseQuery: fetchBaseQuery({ baseUrl: "/api", credentials: "include" }),
-  tagTypes: ["Products"],
+  tagTypes: ["Products", "Users", "Sessions"],
   endpoints: (builder) => ({
+    users: builder.query<{ items: ManagedUser[]; page: number; totalPages: number }, number>({
+      query: (page) => ({ url: "/admin/users", params: { page } }),
+      providesTags: ["Users"],
+    }),
+    changeRole: builder.mutation<void, { id: string; role: UserRole }>({
+      query: ({ id, role }) => ({
+        url: `/admin/users/${id}/role`,
+        method: "PATCH",
+        body: { role },
+      }),
+      invalidatesTags: ["Users"],
+    }),
+    userSessions: builder.query<{ items: ManagedSession[] }, string>({
+      query: (id) => `/admin/users/${id}/sessions`,
+      providesTags: (_result, _error, id) => [{ type: "Sessions", id }],
+    }),
+    revokeSession: builder.mutation<void, { id: string; sessionId: string }>({
+      query: ({ id, sessionId }) => ({
+        url: `/admin/users/${id}/sessions/${sessionId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: "Sessions", id }],
+    }),
     products: builder.query<
       ProductPage,
       { page: number; limit?: number; status?: string; category?: string }
