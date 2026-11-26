@@ -19,9 +19,11 @@
     "helmet": "^8.1.0",
     "mongodb": "^6.20.0",
     "mongoose": "^8.20.0",
+    "swagger-ui-dist": "^5.36.0",
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.1.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.19.0",
     "@types/supertest": "^6.0.3",

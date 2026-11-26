@@ -14,6 +14,7 @@ import { existsSync } from "node:fs";
 import type { Auth } from "./auth.js";
 import type { Request } from "express";
 import { categories, Product, productInput } from "./product.js";
+import { mountSwagger } from "./swagger.js";
 
 const pagination = z.object({
   page: z.string().regex(/^\d+$/).transform(Number)
@@ -251,6 +252,7 @@ export function createApp(auth: Auth, origin: string) {
       res.status(204).end();
     },
   );
+  mountSwagger(app, auth);
   app.use("/api", () => {
     throw new HttpError(404, "Ruta no encontrada");
   });

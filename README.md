@@ -50,7 +50,9 @@ Las cuentas nuevas reciben el rol `user`. Si el correo ya está registrado con c
 
 No existe una contraseña administrativa predeterminada. Las credenciales de entrega se comparten por separado.
 
-## API obligatoria
+## API REST
+
+La documentación interactiva está en `/api/docs` y la especificación **Swagger 2.0** en `/api/docs/swagger.json`. Para probar rutas privadas desde Swagger UI, iniciá sesión en TecnoYa en el mismo navegador. Las operaciones de administración requieren el rol `admin`.
 
 | Método | Ruta | Permiso |
 | --- | --- | --- |
@@ -95,6 +97,6 @@ El build usa `npm ci --include=dev && npm run build` para instalar las herramien
 
 ## Etapas pendientes
 
-Quedan pendientes Swagger **2.0**, carga de imágenes en Supabase Storage (MongoDB guarda solo URL) y el agente LangChain/Groq con herramientas de consulta y comparación.
+Quedan pendientes la carga de imágenes en Supabase Storage (MongoDB guarda solo URL) y el agente LangChain/Groq con herramientas de consulta y comparación.
 
 Todo cambio se trabaja en una rama y se incorpora mediante PR con descripción y pasos de verificación. No subir `.env`, credenciales ni archivos locales de Engram.

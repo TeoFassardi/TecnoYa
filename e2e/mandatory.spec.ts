@@ -1,5 +1,18 @@
 import { test,expect } from '@playwright/test';
 
+test('Swagger UI carga la especificación y consulta el catálogo', async ({ page }) => {
+  await page.goto('/api/docs');
+  await expect(page.getByRole('heading', { name: /API de TecnoYa/ })).toBeVisible();
+  await page.locator('.opblock-tag').filter({ hasText: 'Productos' }).click();
+  await page.getByText('Listar productos activos', { exact: true }).click();
+  await page.getByRole('button', { name: 'Try it out' }).click();
+  const response = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === '/api/products' && response.status() === 200,
+  );
+  await page.getByRole('button', { name: 'Execute', exact: true }).click();
+  expect((await (await response).json()).items).toHaveLength(4);
+});
+
 test('administrador cambia un rol y revoca una sesión desde el panel', async ({ browser, page }) => {
   const userPage = await browser.newPage();
   try {
