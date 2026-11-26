@@ -12,6 +12,7 @@
     "admin": "tsx --env-file-if-exists=.env src/promote-admin.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.2",
     "better-auth": "^1.4.0",
     "dotenv": "^17.2.0",
     "express": "^5.1.0",

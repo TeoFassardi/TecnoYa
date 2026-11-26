@@ -13,6 +13,10 @@ await client.db().collection('user').updateOne({email:'admin@example.com'},{$set
 for(const [category,name] of [['teclados','Teclado de demostración'],['mouse','Mouse de demostración'],['auriculares','Auriculares de demostración'],['monitores','Monitor de demostración']]){
   await Product.create({name,description:'Producto ilustrativo para verificar la interfaz.',category,brand:'TecnoYa',priceCents:5000000,stock:5});
 }
-const server=createApp(auth,'http://127.0.0.1:4173').listen(4173,'127.0.0.1');
+const server = createApp(auth, 'http://127.0.0.1:4173', {
+  async upload() { return 'https://storage.example.com/fixture.png'; },
+  owns(url) { return url === 'https://storage.example.com/fixture.png'; },
+  async remove() {},
+}).listen(4173, '127.0.0.1');
 async function close(){server.close();await mongoose.disconnect();await client.close();await mongo.stop();process.exit(0);}
 process.on('SIGTERM',()=>void close());process.on('SIGINT',()=>void close());

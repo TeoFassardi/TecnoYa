@@ -15,6 +15,13 @@ import type { Auth } from "./auth.js";
 import type { Request } from "express";
 import { categories, Product, productInput } from "./product.js";
 import { mountSwagger } from "./swagger.js";
+import { imageUpload, type ImageStorage } from "./image-storage.js";
+
+const productWrite = productInput.extend({ imageBase64: imageUpload.optional() });
+const productPatch = productWrite.partial().refine(
+  (input) => Object.keys(input).length > 0,
+  "No hay cambios",
+);
 
 const pagination = z.object({
   page: z.string().regex(/^\d+$/).transform(Number)
@@ -46,7 +53,7 @@ export class HttpError extends Error {
     super(message);
   }
 }
-export function createApp(auth: Auth, origin: string) {
+export function createApp(auth: Auth, origin: string, storage?: ImageStorage) {
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", 1);
@@ -67,7 +74,6 @@ export function createApp(auth: Auth, origin: string) {
     }),
   );
   app.all("/api/auth/{*rest}", toNodeHandler(auth));
-  app.use(express.json({ limit: "64kb" }));
   app.use("/api", (req, _res, next) => {
     if (
       !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
@@ -95,6 +101,74 @@ export function createApp(auth: Auth, origin: string) {
       throw new HttpError(400, "Identificador inválido");
     next();
   };
+
+  async function saveImage(imageBase64: z.output<typeof imageUpload> | undefined, imageUrl?: string) {
+    if (imageUrl && storage?.owns(imageUrl))
+      throw new HttpError(400, "Subí el archivo para asignar una imagen de TecnoYa");
+    if (!imageBase64) return undefined;
+    if (imageUrl !== undefined)
+      throw new HttpError(400, "Enviá una imagen o una URL por vez");
+    if (!storage)
+      throw new HttpError(503, "La carga de imágenes todavía no está configurada");
+    try {
+      return await storage.upload(imageBase64);
+    } catch {
+      throw new HttpError(502, "No pudimos guardar la imagen. Intentá nuevamente.");
+    }
+  }
+
+  async function cleanImage(url?: string) {
+    if (!url || !storage?.owns(url)) return;
+    try {
+      if (!(await Product.exists({ imageUrl: url }))) await storage.remove(url);
+    } catch {
+      console.error("No se pudo limpiar una imagen en Storage");
+    }
+  }
+
+  const productJson = express.json({ limit: "3mb" });
+  app.post("/api/products", requireAdmin, productJson, async (req, res) => {
+    const { imageBase64, ...input } = productWrite.parse(req.body);
+    const uploaded = await saveImage(imageBase64, input.imageUrl);
+    if (uploaded) input.imageUrl = uploaded;
+    try {
+      const product = await Product.create(input);
+      res.status(201).json(product);
+    } catch (error) {
+      await cleanImage(uploaded);
+      throw error;
+    }
+  });
+  app.patch("/api/products/:id", requireAdmin, validId, productJson, async (req, res) => {
+    const { imageBase64, ...input } = productPatch.parse(req.body);
+    const replacesImage = imageBase64 !== undefined || input.imageUrl !== undefined;
+    const previous = replacesImage ? await Product.findById(req.params.id).select("imageUrl").lean() : null;
+    if (replacesImage && !previous) throw new HttpError(404, "Producto no encontrado");
+    const uploaded = await saveImage(imageBase64, input.imageUrl);
+    if (uploaded) input.imageUrl = uploaded;
+    try {
+      const product = await Product.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          ...(previous && { imageUrl: previous.imageUrl || { $in: ["", null] } }),
+        },
+        { $set: input },
+        { new: true, runValidators: true },
+      );
+      if (!product) {
+        if (previous && await Product.exists({ _id: req.params.id }))
+          throw new HttpError(409, "La imagen cambió mientras editabas el producto. Volvé a intentar.");
+        throw new HttpError(404, "Producto no encontrado");
+      }
+      await cleanImage(previous?.imageUrl);
+      res.json(product);
+    } catch (error) {
+      await cleanImage(uploaded);
+      throw error;
+    }
+  });
+  app.use(express.json({ limit: "64kb" }));
+
   app.get("/api/health", (_req, res) =>
     res
       .status(mongoose.connection.readyState === 1 ? 200 : 503)
@@ -197,22 +271,6 @@ export function createApp(auth: Auth, origin: string) {
     if (!product) throw new HttpError(404, "Producto no encontrado");
     res.json(product);
   });
-  app.post("/api/products", requireAdmin, async (req, res) =>
-    res.status(201).json(await Product.create(productInput.parse(req.body))),
-  );
-  app.patch("/api/products/:id", requireAdmin, validId, async (req, res) => {
-    const input = productInput
-      .partial()
-      .refine((v) => Object.keys(v).length > 0, "No hay cambios")
-      .parse(req.body);
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { $set: input },
-      { new: true, runValidators: true },
-    );
-    if (!product) throw new HttpError(404, "Producto no encontrado");
-    res.json(product);
-  });
   app.delete("/api/products/:id", requireAdmin, validId, async (req, res) => {
     const product = await Product.findByIdAndUpdate(
       req.params.id,
@@ -241,14 +299,19 @@ export function createApp(auth: Auth, origin: string) {
     requireAdmin,
     validId,
     async (req, res) => {
-      const product = await Product.findById(req.params.id);
-      if (!product) throw new HttpError(404, "Producto no encontrado");
-      if (!product.archivedAt)
+      const product = await Product.findOneAndDelete({
+        _id: req.params.id,
+        archivedAt: { $ne: null },
+      });
+      if (!product) {
+        if (!(await Product.exists({ _id: req.params.id })))
+          throw new HttpError(404, "Producto no encontrado");
         throw new HttpError(
           400,
           "Archivá el producto antes de eliminarlo definitivamente",
         );
-      await Product.deleteOne({ _id: product._id, archivedAt: { $ne: null } });
+      }
+      await cleanImage(product.imageUrl);
       res.status(204).end();
     },
   );
@@ -274,6 +337,10 @@ export function createApp(auth: Auth, origin: string) {
           message: "Revisá los datos ingresados",
           fields: z.flattenError(error).fieldErrors,
         });
+      return;
+    }
+    if (error instanceof Error && "status" in error && error.status === 413) {
+      res.status(413).json({ code: "HTTP_413", message: "La solicitud supera el tamaño permitido" });
       return;
     }
     if (error instanceof HttpError) {

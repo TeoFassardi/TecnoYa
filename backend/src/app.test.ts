@@ -6,10 +6,23 @@ import { createAuth } from "./auth.js";
 import { createApp } from "./app.js";
 import { Product } from "./product.js";
 import SwaggerParser from "@apidevtools/swagger-parser";
+import type { ImageStorage } from "./image-storage.js";
+import { randomUUID } from "node:crypto";
 let mongo: MongoMemoryReplSet;
 let authBundle: ReturnType<typeof createAuth>;
 let app: ReturnType<typeof createApp>;
 const origin = "http://localhost:5173";
+const storedImages = new Map<string, Buffer>();
+const storage: ImageStorage = {
+  async upload({ bytes, extension }) {
+    const url = `https://storage.example.com/product-images/${randomUUID()}.${extension}`;
+    storedImages.set(url, bytes);
+    return url;
+  },
+  owns: (url) => url.startsWith("https://storage.example.com/product-images/"),
+  async remove(url) { storedImages.delete(url); },
+};
+const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=";
 let adminCookie: string;
 let userCookie: string;
 const product = {
@@ -41,7 +54,7 @@ beforeAll(async () => {
     { clientId: "test-client.apps.googleusercontent.com", clientSecret: "test-only" },
   );
   await authBundle.client.connect();
-  app = createApp(authBundle.auth, origin);
+  app = createApp(authBundle.auth, origin, storage);
   adminCookie = await register("admin@example.com");
   await authBundle.client
     .db()
@@ -55,6 +68,36 @@ afterAll(async () => {
   await mongo?.stop();
 });
 describe("Permisos y ciclo completo del catálogo", () => {
+  it("sube imágenes, conserva su URL al editar y limpia reemplazos y bajas físicas", async () => {
+    const { imageUrl: emptyUrl, ...fields } = product;
+    expect(emptyUrl).toBe("");
+    const input = { ...fields, imageBase64: pngBase64 };
+    await request(app).post("/api/products").set("Cookie", userCookie).send(input).expect(403);
+    await request(app).post("/api/products").set("Cookie", adminCookie)
+      .send({ ...input, imageBase64: Buffer.from("archivo falso").toString("base64") }).expect(400);
+    expect(storedImages.size).toBe(0);
+
+    const created = await request(app).post("/api/products")
+      .set("Cookie", adminCookie).send(input).expect(201);
+    const route = `/api/products/${created.body._id}`;
+    const original = created.body.imageUrl;
+    expect(storedImages.get(original)).toEqual(Buffer.from(pngBase64, "base64"));
+    expect(await Product.collection.findOne({ _id: new mongoose.Types.ObjectId(created.body._id) }))
+      .not.toHaveProperty("imageBase64");
+    const edited = await request(app).patch(route)
+      .set("Cookie", adminCookie).send({ stock: 5 }).expect(200);
+    expect(edited.body.imageUrl).toBe(original);
+    const replaced = await request(app).patch(route)
+      .set("Cookie", adminCookie).send({ imageBase64: pngBase64 }).expect(200);
+    const current = replaced.body.imageUrl;
+    expect(current).not.toBe(original);
+    expect(storedImages.has(original)).toBe(false);
+    await request(app).delete(route).set("Cookie", adminCookie).expect(204);
+    expect(storedImages.has(current)).toBe(true);
+    await request(app).delete(`${route}/permanent`).set("Cookie", adminCookie).expect(204);
+    expect(storedImages.has(current)).toBe(false);
+  });
+
   it("publica una especificación Swagger 2.0 válida con las operaciones de TecnoYa", async () => {
     const response = await request(app).get("/api/docs/swagger.json").expect(200);
     expect(response.body.swagger).toBe("2.0");

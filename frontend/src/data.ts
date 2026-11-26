@@ -24,8 +24,7 @@ export type ProductInput = Pick<
   | "category"
   | "priceCents"
   | "stock"
-  | "imageUrl"
->;
+> & { imageBase64?: string; imageUrl?: string };
 interface ProductPage {
   items: Product[];
   page: number;

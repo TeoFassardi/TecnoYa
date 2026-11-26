@@ -426,6 +426,21 @@ textarea {
   grid-template-columns: 1fr 1fr;
   gap: 22px;
 }
+.image-field {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.image-field label {
+  width: 100%;
+}
+.image-field img {
+  width: 112px;
+  height: 88px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #f2f5f9;
+}
 .tabs {
   display: flex;
   gap: 8px;

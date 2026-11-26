@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { config } from "./config.js";
 import { createAuth } from "./auth.js";
 import { createApp } from "./app.js";
+import { createImageStorage } from "./image-storage.js";
 await mongoose.connect(config.MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
 const { auth, client } = createAuth(
   config.MONGODB_URI,
@@ -15,7 +16,10 @@ const { auth, client } = createAuth(
     : undefined,
 );
 await client.connect();
-const server = createApp(auth, config.BETTER_AUTH_URL).listen(
+const imageStorage = config.SUPABASE_URL && config.SUPABASE_SECRET_KEY
+  ? createImageStorage(config.SUPABASE_URL, config.SUPABASE_SECRET_KEY, config.SUPABASE_STORAGE_BUCKET)
+  : undefined;
+const server = createApp(auth, config.BETTER_AUTH_URL, imageStorage).listen(
   config.PORT,
   "0.0.0.0",
   () => console.log(`TecnoYa escuchando en ${config.PORT}`),

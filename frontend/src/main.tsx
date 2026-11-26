@@ -44,16 +44,16 @@ const categories = [
   { id: "monitores", name: "Monitores", Icon: Monitor },
 ];
 function ProductVisual({ product }: { product: Product }) {
-  const [failed, setFailed] = useState(false);
+  const [failedUrl, setFailedUrl] = useState<string>();
   const Icon = categories.find((c) => c.id === product.category)?.Icon ?? Plug;
   return (
     <div className={`product-visual ${product.category}`}>
-      {product.imageUrl && !failed ? (
+      {product.imageUrl && product.imageUrl !== failedUrl ? (
         <img
           src={product.imageUrl}
           alt={product.name}
           loading="lazy"
-          onError={() => setFailed(true)}
+          onError={() => setFailedUrl(product.imageUrl)}
         />
       ) : (
         <Icon aria-hidden="true" strokeWidth={1.1} />
@@ -652,13 +652,26 @@ const editSchema = z.object({
     .int("Usá un número entero")
     .min(0, "El stock no puede ser negativo")
     .max(1000000),
-  imageUrl: z.union([
-    z
-      .url("Ingresá una URL válida")
-      .refine((v) => v.startsWith("https://"), "Usá HTTPS"),
-    z.literal(""),
-  ]),
 });
+
+const imageTypes = ["image/jpeg", "image/png", "image/webp"];
+const maxImageSize = 2 * 1024 * 1024;
+
+function encodeImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    reader.onload = () => {
+      if (typeof reader.result !== "string") {
+        reject(new Error("No se pudo leer la imagen"));
+        return;
+      }
+      resolve(reader.result.slice(reader.result.indexOf(",") + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function Editor() {
   const { id } = useParams();
   const { data, isLoading, isError } = api.useProductQuery(
@@ -667,12 +680,22 @@ function Editor() {
   );
   const [save, { isLoading: busy }] = api.useSaveMutation();
   const [error, setError] = useState("");
+  const [image, setImage] = useState<File>();
+  const [removeImage, setRemoveImage] = useState(false);
+  const imageInput = useRef<HTMLInputElement>(null);
+  const imageError = image && (
+    !imageTypes.includes(image.type)
+      ? "Elegí una imagen JPEG, PNG o WebP."
+      : image.size === 0 || image.size > maxImageSize
+        ? "La imagen debe pesar más de 0 y hasta 2 MB."
+        : ""
+  );
   const navigate = useNavigate();
   const {
     register,
     reset,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
     defaultValues: {
@@ -682,7 +705,6 @@ function Editor() {
       category: "teclados",
       price: 0,
       stock: 0,
-      imageUrl: "",
     },
   });
   useEffect(() => {
@@ -701,14 +723,19 @@ function Editor() {
       </Notice>
     );
   const submit = handleSubmit(async ({ price, ...values }) => {
+    if (imageError) return;
+    setError("");
     try {
+      const imageData = image
+        ? { imageBase64: await encodeImage(image) }
+        : removeImage ? { imageUrl: "" } : {};
       await save({
         id,
-        data: { ...values, priceCents: Math.round(price * 100) },
+        data: { ...values, priceCents: Math.round(price * 100), ...imageData },
       }).unwrap();
       navigate("/admin/products");
     } catch (e) {
-      setError(errorMessage(e));
+      setError(e instanceof Error ? e.message : errorMessage(e));
     }
   });
   return (
@@ -762,13 +789,38 @@ function Editor() {
               <span className="field-error">{errors.stock.message}</span>
             )}
           </label>
+        </div>
+        <div className="image-field">
+          {data?.imageUrl && !removeImage && (
+            <img src={data.imageUrl} alt="Imagen actual del producto" />
+          )}
           <label>
-            URL de imagen (opcional)
-            <input type="url" {...register("imageUrl")} />
-            {errors.imageUrl && (
-              <span className="field-error">{errors.imageUrl.message}</span>
-            )}
+            {data?.imageUrl ? "Reemplazar imagen" : "Imagen del producto (opcional)"}
+            <input
+              ref={imageInput}
+              type="file"
+              accept={imageTypes.join(",")}
+              aria-invalid={Boolean(imageError)}
+              aria-describedby={imageError ? "image-error" : "image-help"}
+              onChange={(event) => {
+                setImage(event.target.files?.[0]);
+                setRemoveImage(false);
+              }}
+              disabled={isSubmitting || busy}
+            />
           </label>
+          <span id="image-help" className="muted">JPEG, PNG o WebP de hasta 2 MB.</span>
+          {imageError && <span id="image-error" className="field-error" role="alert">{imageError}</span>}
+          {image ? (
+            <button className="button subtle" type="button" disabled={isSubmitting || busy} onClick={() => {
+              if (imageInput.current) imageInput.current.value = "";
+              setImage(undefined);
+            }}>Descartar archivo</button>
+          ) : data?.imageUrl && (
+            <button className="button subtle" type="button" disabled={isSubmitting || busy} onClick={() => setRemoveImage(!removeImage)}>
+              {removeImage ? "Conservar imagen" : "Quitar imagen"}
+            </button>
+          )}
         </div>
         <label>
           Descripción
@@ -786,8 +838,8 @@ function Editor() {
           <Link className="button subtle" to="/admin/products">
             Cancelar
           </Link>
-          <button className="button" disabled={busy}>
-            {busy ? "Guardando…" : "Guardar producto"}
+          <button className="button" disabled={busy || isSubmitting || Boolean(imageError)}>
+            {busy || isSubmitting ? "Guardando…" : "Guardar producto"}
           </button>
         </div>
       </form>
