@@ -125,6 +125,15 @@ test('administración, cancelación de modal y efecto público de las dos bajas'
     name: 'teclado.png', mimeType: 'image/png', buffer: png,
   });
   await page.getByRole('button',{name:'Guardar producto'}).click();await expect(page).toHaveURL('/admin/products');
+  const adminRow = page.getByRole('row', { name: /Teclado prueba navegador/ });
+  const thumbnail = adminRow.locator('.admin-product-cell img');
+  await expect(thumbnail).toHaveAttribute('src', 'https://storage.example.com/fixture.png');
+  await expect.poll(() => thumbnail.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1);
+  await adminRow.getByRole('link', { name: 'Editar Teclado prueba navegador' }).click();
+  const cancel = page.getByRole('link', { name: 'Cancelar', exact: true });
+  await expect(cancel).toHaveCSS('text-decoration-line', 'none');
+  await cancel.click();
+  await expect(page).toHaveURL('/admin/products');
   await page.getByRole('button',{name:'Archivar Teclado prueba navegador',exact:true}).click();
   await page.getByRole('button',{name:'Cancelar',exact:true}).click();await expect(page.getByRole('cell',{name:'Teclado prueba navegador Prueba'})).toBeVisible();
   await page.getByRole('button',{name:'Archivar Teclado prueba navegador',exact:true}).click();await page.getByRole('button',{name:'Archivar',exact:true}).click();
@@ -152,6 +161,8 @@ test('administración, cancelación de modal y efecto público de las dos bajas'
 });
 test('catálogo responsive y capturas',async({page})=>{
   await page.goto('/');await expect(page.getByRole('heading',{name:'Un buen setup cambia tu día.'})).toBeVisible();
+  const hero = page.getByRole('img', { name: 'Teclado, mouse y monitor sobre un escritorio azul claro' });
+  await expect.poll(() => hero.evaluate((element: HTMLImageElement) => element.naturalWidth)).toBe(1200);
   await expect(page.getByRole('heading',{name:'Teclado de demostración'})).toBeVisible();
   await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'test-results/catalog-desktop.png',fullPage:true});
   await page.setViewportSize({width:375,height:812});

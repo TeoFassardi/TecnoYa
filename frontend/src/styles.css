@@ -158,33 +158,16 @@ h4 {
   position: relative;
   background: #edf3ff;
   border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
   min-height: 340px;
   overflow: hidden;
-  color: #185adb;
 }
-.hero-device > svg {
-  width: 75%;
-  height: 210px;
-  transform: rotate(-12deg);
-  filter: drop-shadow(12px 20px 0 #c9d9f7);
-}
-.device-label {
+.hero-device > img {
   position: absolute;
-  top: 25px;
-  left: 26px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #3e587e;
-}
-.hero-device > span {
-  position: absolute;
-  bottom: 22px;
-  font-size: 12px;
-  color: #3e587e;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .section-heading {
   display: flex;
@@ -341,7 +324,7 @@ h4 {
   line-height: 1.6;
 }
 .notice a,
-.form-panel a {
+.form-panel a:not(.button) {
   color: var(--blue);
   text-decoration: underline;
 }
@@ -483,6 +466,22 @@ td small {
   color: var(--muted);
   margin-top: 5px;
 }
+.admin-product-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.admin-product-cell .product-visual {
+  flex: none;
+  width: 60px;
+  height: 48px;
+  padding: 4px;
+  border-radius: 6px;
+}
+.admin-product-cell .product-visual > svg {
+  width: 26px;
+  height: 26px;
+}
 .session-agent {
   min-width: 12rem;
   max-width: 24rem;
@@ -616,10 +615,8 @@ main > section[id] {
     font-size: 44px;
   }
   .hero-device {
-    min-height: 240px;
-  }
-  .hero-device > svg {
-    height: 150px;
+    aspect-ratio: 3 / 2;
+    min-height: 0;
   }
   .category-strip {
     gap: 8px;

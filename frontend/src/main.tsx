@@ -44,15 +44,15 @@ const categories = [
   { id: "auriculares", name: "Auriculares", Icon: Headphones },
   { id: "monitores", name: "Monitores", Icon: Monitor },
 ];
-function ProductVisual({ product }: { product: Product }) {
+function ProductVisual({ product, decorative = false }: { product: Product; decorative?: boolean }) {
   const [failedUrl, setFailedUrl] = useState<string>();
   const Icon = categories.find((c) => c.id === product.category)?.Icon ?? Plug;
   return (
-    <div className={`product-visual ${product.category}`}>
+    <div className={`product-visual ${product.category}`} aria-hidden={decorative || undefined}>
       {product.imageUrl && product.imageUrl !== failedUrl ? (
         <img
           src={product.imageUrl}
-          alt={product.name}
+          alt={decorative ? "" : product.name}
           loading="lazy"
           onError={() => setFailedUrl(product.imageUrl)}
         />
@@ -176,10 +176,14 @@ function Catalog() {
             Explorar catálogo <ArrowUpRight size={18} />
           </a>
         </div>
-        <div className="hero-device" aria-hidden="true">
-          <div className="device-label">Hacé espacio para algo mejor.</div>
-          <Keyboard strokeWidth={0.7} />
-          <span>Trabajá cómodo. Jugá a tu manera.</span>
+        <div className="hero-device">
+          <img
+            src="/images/catalog-hero.webp"
+            alt="Teclado, mouse y monitor sobre un escritorio azul claro"
+            width={1200}
+            height={800}
+            fetchPriority="high"
+          />
         </div>
       </section>
       <section id="catalog">
@@ -581,8 +585,13 @@ function Admin() {
               {data.items.map((p) => (
                 <tr key={p._id}>
                   <td>
-                    <strong>{p.name}</strong>
-                    <small>{p.brand}</small>
+                    <div className="admin-product-cell">
+                      <ProductVisual product={p} decorative />
+                      <div>
+                        <strong>{p.name}</strong>
+                        <small>{p.brand}</small>
+                      </div>
+                    </div>
                   </td>
                   <td>{p.category}</td>
                   <td>{money(p.priceCents)}</td>
