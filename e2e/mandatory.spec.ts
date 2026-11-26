@@ -1,5 +1,24 @@
 import { test,expect } from '@playwright/test';
 
+test('la navegación avisa cuando carga y respeta el movimiento reducido', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  let resume: () => void = () => {};
+  const loading = new Promise<void>((resolve) => { resume = resolve; });
+  await page.route(/\/api\/products\?/, async (route) => {
+    await loading;
+    await route.continue();
+  });
+  await page.goto('/');
+  await expect(page.getByRole('status').filter({ hasText: 'Cargando productos' })).toBeVisible();
+  await expect(page.locator('.loading-shape').first()).toHaveCSS('animation-name', 'none');
+  resume();
+  await page.getByRole('link', { name: /Teclado de demostración/ }).click();
+  await expect(page.getByRole('heading', { name: 'Teclado de demostración' })).toBeVisible();
+  await expect(page.locator('#main')).toBeFocused();
+  await expect(page.locator('#main')).toHaveCSS('animation-name', 'none');
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
 test('asistente requiere sesión y enlaza una ficha del catálogo', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/assistant');
