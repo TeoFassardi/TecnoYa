@@ -5,6 +5,7 @@ import request from "supertest";
 import { createAuth } from "./auth.js";
 import { createApp } from "./app.js";
 import { Product } from "./product.js";
+import SwaggerParser from "@apidevtools/swagger-parser";
 let mongo: MongoMemoryReplSet;
 let authBundle: ReturnType<typeof createAuth>;
 let app: ReturnType<typeof createApp>;
@@ -54,6 +55,17 @@ afterAll(async () => {
   await mongo?.stop();
 });
 describe("Permisos y ciclo completo del catálogo", () => {
+  it("publica una especificación Swagger 2.0 válida con las operaciones de TecnoYa", async () => {
+    const response = await request(app).get("/api/docs/swagger.json").expect(200);
+    expect(response.body.swagger).toBe("2.0");
+    expect(response.body.basePath).toBe("/api");
+    expect(response.body.paths["/products/{id}/permanent"].delete).toBeDefined();
+    expect(response.body.paths["/admin/users/{id}/sessions/{sessionId}"].delete).toBeDefined();
+    expect(response.body.paths["/auth/callback/{id}"].get).toBeDefined();
+    expect(response.body.paths["/auth/admin/set-role"]).toBeUndefined();
+    await SwaggerParser.validate(response.body);
+  });
+
   it("inicia OAuth de Google con el callback de TecnoYa", async () => {
     const response = await request(app)
       .post("/api/auth/sign-in/social")
