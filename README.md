@@ -68,13 +68,13 @@ Los errores de la API de productos contienen `code`, `message` y opcionalmente `
 - `npx playwright install chromium` y `npx playwright test`: recorridos de navegador contra una base temporal y la compilación del frontend; ejecutar después de compilar.
 - `npm start`: ejecutar después de compilar, con las variables del backend configuradas.
 
-Verificar también en Chrome: registro, errores de login, acceso denegado al usuario común, CRUD admin, cancelar y confirmar modales, efecto público de archivo/restauración/borrado y logout con redirección. Esta comprobación en producción sigue pendiente hasta configurar los servicios.
+Para repetir la verificación en producción con Chrome, probá el registro, los errores de inicio de sesión, el acceso denegado al usuario común y el CRUD como administrador. Comprobá que los modales permitan cancelar o confirmar, que el catálogo refleje las bajas y la restauración, y que cerrar sesión redirija al inicio.
 
 ## Despliegue gratuito en Render
 
-Usar `render.yaml` para crear un Web Service gratuito conectado al repositorio. Completar `MONGODB_URI` con una base Atlas gratuita y `BETTER_AUTH_URL` con la URL HTTPS asignada por Render. El secreto se genera en Render. Configurar acceso de red a Atlas para el entorno de despliegue. Build: `npm ci && npm run build`; inicio: `npm start`; salud: `/api/health`.
+La aplicación está disponible en [TecnoYa](https://tecnoya.onrender.com). Para reproducir el despliegue, usá `render.yaml` para crear un Web Service gratuito conectado al repositorio. Configurá `MONGODB_URI` con una base Atlas gratuita y `BETTER_AUTH_URL` con la URL HTTPS del servicio. Generá el secreto en Render y habilitá el acceso de red desde Render en Atlas.
 
-La app puede tardar en iniciar después de inactividad en el plan gratuito. No guarda archivos en el disco efímero de Render. Configurar los despliegues manualmente después de integrar PR a main. La creación del servicio, las credenciales, el seed productivo y la promoción de la cuenta admin requieren acceso a los servicios del titular y están pendientes.
+El build usa `npm ci --include=dev && npm run build` para instalar las herramientas de compilación. El servicio arranca con `npm start` y comprueba su estado en `/api/health`. Desplegá manualmente después de integrar los PR a `main`. La app puede tardar en arrancar tras un período de inactividad en el plan gratuito.
 
 ## Etapas pendientes
 
